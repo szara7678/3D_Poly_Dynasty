@@ -96,6 +96,10 @@ export function runProduction(){
               
               // 생산으로 인한 수련치 상승 처리
               handleProductionPractice(worker, skillKey);
+              
+              // 건물 경험치 증가 (생산 완료 시에만)
+              if (!b.xp) b.xp = 0;
+              b.xp += Math.floor(amount * 1); // 생산량의 2배만큼 경험치
             }
             
             // 생산 완료 후 진행률 리셋 (다음 생산 사이클 시작)
@@ -123,6 +127,10 @@ export function runProduction(){
             
             // 수련으로 인한 수련치 상승 처리
             handleProductionPractice(worker, trainSkillKey);
+            
+            // 건물 경험치 증가 (수련 완료 시에만)
+            if (!b.xp) b.xp = 0;
+            b.xp += 2; // 수련 완료 시 고정 경험치
             
             // 수련 완료 후 진행률 리셋
             trainState.progress = 0;

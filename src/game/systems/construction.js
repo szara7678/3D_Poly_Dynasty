@@ -22,10 +22,9 @@ export function runConstruction(){
     b.construct.progress = Math.min(1, prog + dtEff/buildTime);
     if(b.construct.progress>=1){
       b.construct.active=false;
-      // 건설 완료 효과: 마을 회관이면 인구/수용력 +3
+      // 건설 완료 효과: 마을 회관이면 인구 +3
       if(b.type === "town_hall"){
         state.population = (state.population||0) + 3;
-        state.popCap = (state.popCap||0) + 3;
         // 회관 주변에 시민 3명 스폰(유휴) — 무작위 생성 유틸 사용
         for(let i=0;i<3;i++){
           // 회관에서 더 멀리, 기존 건물과 겹치지 않게 스폰(반경 5~7m)

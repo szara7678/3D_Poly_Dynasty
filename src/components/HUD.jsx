@@ -15,7 +15,7 @@ export default function HUD(){
       <span>🌿 {r.herb.toFixed(0)}</span>
       <span>🪵 {r.wood.toFixed(0)}</span>
       <span>⭐ {r.reputation.toFixed(0)}</span>
-      <span>👥 {state.population}/{state.popCap}</span>
+      <span>👥 {state.population}</span>
       {activeCons.length>0 && (
         <span className="ml-2 bg-emerald-600/70 px-2 py-0.5 rounded-md">🏗️ {minEta.toFixed(1)}s ×{activeCons.length}</span>
       )}

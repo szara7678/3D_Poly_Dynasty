@@ -4,8 +4,6 @@ export const initialState = () => ({
   tick: 0,
   res: { food: 200, gold: 300, ore: 50, herb: 40, wood: 200, reputation: 0 },
   population: 0,
-  popCap: 0,
-  nextPopRepReq: 50,
   units: {},
   buildings: {},
   sim: { timeScale: 1, paused: false },

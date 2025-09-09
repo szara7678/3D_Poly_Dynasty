@@ -5,6 +5,7 @@ import { runConstruction } from "./systems/construction";
 import { runBuildingXP } from "./systems/buildingXP";
 import { runSpawn } from "./systems/spawn";
 import { runMovement } from "./systems/movement";
+import { runPopulationGrowth } from "./systems/populationGrowth";
 
 export const FIXED_DT = 0.5; // sec
 let acc=0, last=performance.now(), saveTimer=0;
@@ -31,6 +32,7 @@ function tick(){
   runProduction();
   runBuildingXP();
   runReputation();
+  runPopulationGrowth(); // 명성 기반 인구 증가
   runSpawn();
 }
 
