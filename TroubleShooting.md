@@ -36,3 +36,12 @@
   - 원인: 초기 시민 수가 0으로 설정되어 있어서 에이전트가 생성되지 않음
   - 조치: App.jsx에서 초기 시민 5명을 생성하도록 수정, construction.js의 기존 회관 건설 완료 시 시민 추가 로직은 이미 정상 작동
 
+## 2024-12-19
+
+- 현상: 건물이 선택한 위치와 다른 곳에 배치되거나 지형에 묻히는 문제
+  - 원인: BuildingManager와 InteractionHandler에서 지형 높이를 고려하지 않음
+  - 조치: 
+    - BuildingManager에서 terrain.groundHeight()를 사용하여 건물 위치 계산
+    - InteractionHandler에서 고스트 메쉬도 지형 높이를 고려하도록 수정
+    - 건물이 지면에 올바르게 배치되도록 Y 위치 계산 개선
+

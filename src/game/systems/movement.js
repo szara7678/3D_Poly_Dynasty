@@ -35,7 +35,7 @@ export function runMovement(){
       continue; 
     }
     
-    const spd = speedBase * (0.9 + (u.stats?.AGI||5)*0.02); // AGI 약간 반영
+    const spd = speedBase * (0.8 + (u.stats?.AGI||5)*0.04); // AGI 강하게 반영
     const step = Math.min(dist, spd * dt);
     const nx = pos.x + (dx/dist) * step; const nz = pos.z + (dz/dist) * step;
     u.pos.x = nx; u.pos.z = nz; u.dir = Math.atan2(nx - pos.x, nz - pos.z);

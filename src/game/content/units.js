@@ -3,7 +3,7 @@
 export const STAT_KEYS = ["STR", "AGI", "VIT", "INT"];
 export const SKILL_KEYS = [
   "Farming",
-  "Hunting",
+  "Woodcutting",
   "Gathering",
   "Mining",
   "Magic",
@@ -53,9 +53,8 @@ export function rollStats(){
 export function rollTalent(){
   const talent = {};
   for(const k of SKILL_KEYS){
-    // 시작 재능: 0~6 범위의 소량 랜덤, Admin은 약간 가중
-    const base = (k === "Admin") ? 1 : 0;
-    talent[k] = Math.max(0, Math.min(100, base + randInt(0, 6)));
+    // 시작 재능: 0~10 범위의 소량 랜덤
+    talent[k] = Math.max(0, Math.min(10, randInt(0, 6)));
   }
   return talent;
 }
@@ -63,8 +62,8 @@ export function rollTalent(){
 export function rollPractice(){
   const practice = {};
   for(const k of SKILL_KEYS){
-    // 수련치: 정수 0~5
-    practice[k] = randInt(0, 5);
+    // 초기 수련치: 정수 0~10
+    practice[k] = randInt(0, 10);
   }
   return practice;
 }

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BUILDING_DEFS } from "../../game/content/buildings.js";
+import { terrain } from "../../world/terrain.js";
 
 /**
  * 건물 렌더링 및 인스턴싱 관리 클래스
@@ -27,7 +28,7 @@ export class BuildingManager {
     const typeDefs = {
       town_hall: { geo: new THREE.BoxGeometry(3.0, 1.8, 3.0), color: '#8b5cf6' },
       farm: { geo: new THREE.BoxGeometry(3.2, 0.3, 3.2), color: '#84cc16' },
-      hunter: { geo: new THREE.ConeGeometry(1.0, 1.6, 8), color: '#22c55e' },
+      woodcutter: { geo: new THREE.ConeGeometry(1.0, 1.6, 8), color: '#22c55e' },
       gatherer: { geo: new THREE.CylinderGeometry(0.9, 0.9, 1.2, 10), color: '#14b8a6' },
       mine: { geo: new THREE.BoxGeometry(1.6, 1.4, 1.6), color: '#71717a' },
       barracks: { geo: new THREE.BoxGeometry(2.6, 1.2, 1.6), color: '#ef4444' },
@@ -80,7 +81,11 @@ export class BuildingManager {
       const baseH = 1.0;
       const height = baseH * (0.2 + 0.8 * progress);
       
-      this.tmpP.set(x, height / 2, z);
+      // 지형 높이 계산
+      const groundY = terrain.groundHeight(x, z);
+      const buildingY = groundY + height / 2;
+      
+      this.tmpP.set(x, buildingY, z);
       this.tmpQ.set(0, 0, 0, 1);
       const sizeMult = 1.0 + 0.05 * (b.level - 1);
       this.tmpS.set(sizeMult, height, sizeMult);

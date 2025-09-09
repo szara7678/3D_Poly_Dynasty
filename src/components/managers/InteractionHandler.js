@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { BUILDING_DEFS } from "../../game/content/buildings.js";
+import { terrain } from "../../world/terrain.js";
 import { 
   spend, 
   uid, 
@@ -143,7 +144,12 @@ export class InteractionHandler {
     const defPlace = BUILDING_DEFS[placingType];
     
     ghostMesh.material.color.set(isValidPlacement ? 0x22c55e : 0xef4444);
-    ghostMesh.position.set(hit.x, 0.75, hit.z);
+    
+    // 지형 높이 계산
+    const groundY = terrain.groundHeight(hit.x, hit.z);
+    const ghostY = groundY + 0.75; // 지면 위 0.75 높이
+    
+    ghostMesh.position.set(hit.x, ghostY, hit.z);
     const sizeMult = (defPlace?.placeRadius || 1.2) / 1.2;
     ghostMesh.scale.set(1.2 * sizeMult, 1.0, 1.2 * sizeMult);
   }

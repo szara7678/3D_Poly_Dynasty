@@ -13,24 +13,37 @@ export class LabelManager {
   /**
    * 라벨 스프라이트 생성
    * @param {string} text - 표시할 텍스트
-   * @returns {Object} 라벨 객체 (sprite, canvas, ctx, draw, lastText)
+   * @param {number} progress - 생산 진행률 (0-1)
+   * @returns {Object} 라벨 객체 (sprite, canvas, ctx, draw, lastText, lastProgress)
    */
-  makeLabelSprite(text) {
+  makeLabelSprite(text, progress = 0) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 96;
     const ctx = canvas.getContext('2d');
     
-    const draw = (t) => {
+    const draw = (t, prog = 0) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 배경
       ctx.fillStyle = 'rgba(16,185,129,0.85)';
       const pad = 8;
       const w = canvas.width - pad * 2;
       const h = 40;
       const y = 28;
       ctx.fillRect(pad, y, w, h);
-      ctx.fillStyle = '#0b2';
-      ctx.fillRect(pad, y + h - 4, w, 4);
+      
+      // 생산 진행률 바 (배경)
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(pad, y + h - 8, w, 8);
+      
+      // 생산 진행률 바 (진행된 부분)
+      if(prog > 0) {
+        ctx.fillStyle = '#4ade80'; // 밝은 녹색
+        ctx.fillRect(pad, y + h - 8, w * prog, 8);
+      }
+      
+      // 텍스트
       ctx.font = 'bold 28px sans-serif';
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
@@ -38,14 +51,14 @@ export class LabelManager {
       ctx.fillText(t, canvas.width / 2, y + h / 2);
     };
     
-    draw(text);
+    draw(text, progress);
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
     const sprite = new THREE.Sprite(mat);
     sprite.scale.set(3.0, 1.2, 1.0);
     this.scene.add(sprite);
-    return { sprite, canvas, ctx, draw, lastText: text };
+    return { sprite, canvas, ctx, draw, lastText: text, lastProgress: progress };
   }
 
   /**
@@ -113,17 +126,31 @@ export class LabelManager {
           hiddenWorkers.forEach((worker, index) => {
             const labelKey = `${bid}_worker_${index}`;
             const text = worker.name;
+            
+            // 각 시민의 개별 생산 진행률 계산
+            let workerProgress = 0;
+            if (worker.production) {
+              for (const resourceKey in worker.production) {
+                const prodState = worker.production[resourceKey];
+                if (prodState && prodState.progress > workerProgress) {
+                  workerProgress = prodState.progress;
+                }
+              }
+            }
+            
             let entry = this.labelMap.get(labelKey);
             
             if (!entry) {
-              entry = this.makeLabelSprite(text);
+              entry = this.makeLabelSprite(text, workerProgress);
               this.labelMap.set(labelKey, entry);
             }
             
-            if (entry.lastText !== text) {
-              entry.draw(text);
+            // 텍스트나 진행률이 변경되었으면 업데이트
+            if (entry.lastText !== text || entry.lastProgress !== workerProgress) {
+              entry.draw(text, workerProgress);
               entry.sprite.material.map.needsUpdate = true;
               entry.lastText = text;
+              entry.lastProgress = workerProgress;
             }
             
             const baseH = 1.0;

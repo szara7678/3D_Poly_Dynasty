@@ -14,7 +14,6 @@ export default function HUD(){
       <span>⛏️ {r.ore.toFixed(0)}</span>
       <span>🌿 {r.herb.toFixed(0)}</span>
       <span>🪵 {r.wood.toFixed(0)}</span>
-      <span>🪨 {r.stone.toFixed(0)}</span>
       <span>⭐ {r.reputation.toFixed(0)}</span>
       <span>👥 {state.population}/{state.popCap}</span>
       {activeCons.length>0 && (
