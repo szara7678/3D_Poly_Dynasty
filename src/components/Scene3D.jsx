@@ -4,8 +4,15 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { Agents } from "./agents/Agents.jsx";
 import { terrain } from "../world/terrain.js";
 import { updateKeyboardOrbit } from "../controls/keyboard.js";
-import { state, subscribe, spend, uid, addBuilding, idleUnits, assignUnitToBuilding, setPlacing, setSelectedBuilding, setSelectedUnit, setUnitMoveTarget } from "../game/state.js";
+import { state, subscribe, setPlacing, setSelectedBuilding, setSelectedUnit } from "../game/state.js";
 import { BUILDING_DEFS } from "../game/content/buildings.js";
+
+// 분리된 매니저 클래스들
+import { BuildingManager } from "./managers/BuildingManager.js";
+import { LabelManager } from "./managers/LabelManager.js";
+import { TownRangeManager } from "./managers/TownRangeManager.js";
+import { InteractionHandler } from "./managers/InteractionHandler.js";
+import { SelectionRingManager } from "./managers/SelectionRingManager.js";
 
 export default function Scene3D({ className = "", units = [], count = 260, maxCount = 800, timeScale = 1 }) {
   const containerRef = useRef();
@@ -74,208 +81,18 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     scene.add(terrainMesh);
     const scatterGroup = terrain.scatterObjects(scene, 1200);
 
-    // 건물 인스턴싱 (타입별)
-    const MAX_PER_TYPE = 128;
-    const tmpM = new THREE.Matrix4();
-    const tmpQ = new THREE.Quaternion();
-    const tmpS = new THREE.Vector3();
-    const tmpP = new THREE.Vector3();
-    
-    const typeDefs = {
-      town_hall: { geo: new THREE.BoxGeometry(3.0, 1.8, 3.0), color: '#8b5cf6' },
-      farm: { geo: new THREE.BoxGeometry(3.2, 0.3, 3.2), color: '#84cc16' },
-      hunter: { geo: new THREE.ConeGeometry(1.0, 1.6, 8), color: '#22c55e' },
-      gatherer: { geo: new THREE.CylinderGeometry(0.9, 0.9, 1.2, 10), color: '#14b8a6' },
-      mine: { geo: new THREE.BoxGeometry(1.6, 1.4, 1.6), color: '#71717a' },
-      barracks: { geo: new THREE.BoxGeometry(2.6, 1.2, 1.6), color: '#ef4444' },
-      mage_tower: { geo: new THREE.CylinderGeometry(0.8, 0.8, 2.4, 12), color: '#06b6d4' },
-      smithy: { geo: new THREE.BoxGeometry(1.8, 1.0, 1.8), color: '#f59e0b' },
-      monster_den: { geo: new THREE.DodecahedronGeometry(1.2, 0), color: '#4b5563' },
-    };
+    // 매니저들 초기화
+    const buildingManager = new BuildingManager(scene);
+    const labelManager = new LabelManager(scene);
+    const townRangeManager = new TownRangeManager(scene);
+    const selectionRingManager = new SelectionRingManager(scene);
 
-    const buildingMeshes = {};
-    for (const t in typeDefs) {
-      const mat = new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color(typeDefs[t].color), 
-        metalness: 0.02, 
-        roughness: 0.9 
-      });
-      const baseGeo = typeDefs[t].geo.clone();
-      const inst = new THREE.InstancedMesh(baseGeo, mat, MAX_PER_TYPE);
-      inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      inst.frustumCulled = false;
-      inst.count = 0;
-      scene.add(inst);
-      buildingMeshes[t] = inst;
-    }
 
-    // 건설 ETA 라벨 (Sprite)
-    const labelMap = new Map();
-    
-    function makeLabelSprite(text) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 96;
-      const ctx = canvas.getContext('2d');
-      
-      function draw(t) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(16,185,129,0.85)';
-        const pad = 8;
-        const w = canvas.width - pad * 2;
-        const h = 40;
-        const y = 28;
-        ctx.fillRect(pad, y, w, h);
-        ctx.fillStyle = '#0b2';
-        ctx.fillRect(pad, y + h - 4, w, 4);
-        ctx.font = 'bold 28px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(t, canvas.width / 2, y + h / 2);
-      }
-      
-      draw(text);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.needsUpdate = true;
-      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
-      const sprite = new THREE.Sprite(mat);
-      sprite.scale.set(3.0, 1.2, 1.0);
-      scene.add(sprite);
-      return { sprite, canvas, ctx, draw, lastText: text };
-    }
-
-    function updateConstructionLabels() {
-      // 완료된 라벨 제거
-      for (const [id, entry] of Array.from(labelMap.entries())) {
-        const b = state.buildings[id];
-        if (!b || !b.construct?.active) {
-          scene.remove(entry.sprite);
-          entry.sprite.material.map.dispose();
-          entry.sprite.material.dispose();
-          labelMap.delete(id);
-        }
-      }
-      
-      // 활성 건설 라벨 추가/업데이트
-      for (const bid in state.buildings) {
-        const b = state.buildings[bid];
-        if (!b) continue;
-        
-        // 건설 중인 건물의 ETA 표시
-        if (b.construct?.active) {
-          const eta = Math.max(0, b.construct?.eta || 0);
-          const text = `${eta.toFixed(1)}s`;
-          let entry = labelMap.get(bid);
-          
-          if (!entry) {
-            entry = makeLabelSprite(text);
-            labelMap.set(bid, entry);
-          }
-          
-          if (entry.lastText !== text) {
-            entry.draw(text);
-            entry.sprite.material.map.needsUpdate = true;
-            entry.lastText = text;
-          }
-          
-          const progress = Math.max(0.1, Math.min(1, b.construct?.progress || 0));
-          const baseH = 1.0;
-          const height = baseH * (0.2 + 0.8 * progress);
-          entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
-        }
-        // 완성된 건물의 숨겨진 시민들 표시
-        else if (!b.construct?.active) {
-          const hiddenWorkers = Object.values(state.units).filter(u => 
-            u.hidden && u.hiddenBuildingId === bid
-          );
-          
-          if (hiddenWorkers.length > 0) {
-            // 기존 라벨들 제거
-            for (let i = 0; i < 10; i++) { // 최대 10개까지 지원
-              const labelKey = `${bid}_worker_${i}`;
-              const entry = labelMap.get(labelKey);
-              if (entry) {
-                scene.remove(entry.sprite);
-                labelMap.delete(labelKey);
-              }
-            }
-            
-            // 각 시민별로 개별 라벨 생성
-            hiddenWorkers.forEach((worker, index) => {
-              const labelKey = `${bid}_worker_${index}`;
-              const text = worker.name;
-              let entry = labelMap.get(labelKey);
-              
-              if (!entry) {
-                entry = makeLabelSprite(text);
-                labelMap.set(labelKey, entry);
-              }
-              
-              if (entry.lastText !== text) {
-                entry.draw(text);
-                entry.sprite.material.map.needsUpdate = true;
-                entry.lastText = text;
-              }
-              
-              const baseH = 1.0;
-              const height = baseH + (index * 0.5); // 세로로 배치 (간격 증가)
-              entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
-            });
-          } else {
-            // 숨겨진 시민이 없으면 모든 라벨 제거
-            for (let i = 0; i < 10; i++) {
-              const labelKey = `${bid}_worker_${i}`;
-              const entry = labelMap.get(labelKey);
-              if (entry) {
-                scene.remove(entry.sprite);
-                labelMap.delete(labelKey);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    function refreshBuildings() {
-      // 카운트 리셋
-      for (const t in buildingMeshes) {
-        buildingMeshes[t].count = 0;
-      }
-      
-      const counter = {};
-      for (const t in buildingMeshes) counter[t] = 0;
-      
-      for (const id in state.buildings) {
-        const b = state.buildings[id];
-        const inst = buildingMeshes[b.type];
-        if (!inst) continue;
-        
-        const idx = counter[b.type];
-        if (idx >= MAX_PER_TYPE) continue;
-        counter[b.type] = idx + 1;
-        
-        const x = b.tile?.x || 0;
-        const z = b.tile?.z || 0;
-        const progress = (b.construct?.active) ? Math.max(0.1, Math.min(1, b.construct.progress || 0)) : 1;
-        const baseH = 1.0;
-        const height = baseH * (0.2 + 0.8 * progress);
-        
-        tmpP.set(x, height / 2, z);
-        tmpQ.set(0, 0, 0, 1);
-        const sizeMult = 1.0 + 0.05 * (b.level - 1);
-        tmpS.set(sizeMult, height, sizeMult);
-        tmpM.compose(tmpP, tmpQ, tmpS);
-        inst.setMatrixAt(idx, tmpM);
-        inst.count = counter[b.type];
-        inst.instanceMatrix.needsUpdate = true;
-      }
-    }
 
     // 외부에서 호출 가능하도록 저장하고 초기 갱신
     if (!threeRef.current) threeRef.current = {};
-    threeRef.current.refreshBuildings = refreshBuildings;
-    refreshBuildings();
+    threeRef.current.refreshBuildings = () => buildingManager.refreshBuildings(state.buildings);
+    threeRef.current.refreshBuildings();
 
     const clock = new THREE.Clock();
     const resize = () => {
@@ -288,7 +105,20 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     resize();
     window.addEventListener('resize', resize);
 
-    threeRef.current = { renderer, scene, camera, controls, clock, refreshBuildings, scatterGroup };
+    threeRef.current = { 
+      renderer, 
+      scene, 
+      camera, 
+      controls, 
+      clock, 
+      refreshBuildings: () => buildingManager.refreshBuildings(state.buildings), 
+      scatterGroup,
+      terrainMesh,
+      buildingManager,
+      labelManager,
+      townRangeManager,
+      selectionRingManager
+    };
 
     const loop = () => {
       const dt = Math.min(0.033, clock.getDelta()) * Math.max(0.0001, timeScale);
@@ -316,7 +146,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       }
       
       updateKeyboardOrbit(controls, camera, keysRef.current, dt, { move: 32, rotate: 5.0, climb: 32 });
-      updateConstructionLabels();
+      labelManager.updateConstructionLabels(state.buildings, state.units);
       controls.update();
       renderer.render(scene, camera);
       requestAnimationFrame(loop);
@@ -325,34 +155,25 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
 
     return () => {
       window.removeEventListener('resize', resize);
-      for (const t in buildingMeshes) {
-        const inst = buildingMeshes[t];
-        scene.remove(inst);
-        inst.geometry.dispose();
-        inst.material.dispose();
-      }
-      for (const [id, entry] of Array.from(labelMap.entries())) {
-        scene.remove(entry.sprite);
-        entry.sprite.material.map.dispose();
-        entry.sprite.material.dispose();
-      }
+      buildingManager.dispose();
+      labelManager.dispose();
+      townRangeManager.dispose();
+      selectionRingManager.dispose();
       renderer.dispose();
     };
   }, [timeScale, terrain]);
 
-  // 배치 모드: 클릭 위치로 건설 확정 + 회관 레벨 반경 표시
+  // 배치 모드 및 상호작용 처리
   useEffect(() => {
     const three = threeRef.current;
     if (!three) return;
     
-    const { renderer, scene, camera } = three;
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-
-    // 마을 범위 표시(회관별 그룹)
-    const townRangeGroups = new Map();
-    // 청사진(고스트) 메쉬
+    const { renderer, scene, camera, townRangeManager, selectionRingManager } = three;
+    
+    // 상호작용 핸들러 초기화
+    const interactionHandler = new InteractionHandler(renderer, camera, scene, threeRef, state);
+    
+    // 고스트 메쉬 관리
     let ghostMesh = null;
 
     const unsub = subscribe(() => {
@@ -370,480 +191,38 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
         });
         ghostMesh = new THREE.Mesh(geo, mat);
         scene.add(ghostMesh);
+        threeRef.current.ghostMesh = ghostMesh;
       } else if (!placingType && ghostMesh) {
         scene.remove(ghostMesh);
         ghostMesh.geometry.dispose();
         ghostMesh.material.dispose();
         ghostMesh = null;
+        threeRef.current.ghostMesh = null;
       }
 
-      // 다중 회관 범위 표시
-      const halls = Object.values(state.buildings).filter(b => b.type === "town_hall" && !b.construct?.active);
-      const seen = new Set();
-      
-      for (const h of halls) {
-        const hid = h.id;
-        seen.add(hid);
-        const level = h.level || 1;
-        const radius = 30 + 10 * (level - 1);
-        
-        let g = townRangeGroups.get(hid);
-        if (!g) {
-          g = new THREE.Group();
-          
-          // 채우기 (원형)
-          const fillGeo = new THREE.CircleGeometry(radius, 128);
-          fillGeo.rotateX(-Math.PI / 2);
-          const fillMat = new THREE.MeshBasicMaterial({ 
-            color: 0x10b981, 
-            transparent: true, 
-            opacity: 0.12, 
-            side: THREE.DoubleSide, 
-            depthWrite: false, 
-            blending: THREE.AdditiveBlending 
-          });
-          const fill = new THREE.Mesh(fillGeo, fillMat);
-          g.add(fill);
-          
-          // 테두리 (링)
-          const edgeGeo = new THREE.RingGeometry(Math.max(0, radius - 0.12), radius + 0.12, 192);
-          edgeGeo.rotateX(-Math.PI / 2);
-          const edgeMat = new THREE.MeshBasicMaterial({ 
-            color: 0x065f46, 
-            transparent: true, 
-            opacity: 0.9, 
-            side: THREE.DoubleSide, 
-            depthWrite: false 
-          });
-          const edge = new THREE.Mesh(edgeGeo, edgeMat);
-          edge.position.y = 0.01;
-          g.add(edge);
-          
-          // 벽 (실린더)
-          const wallGeo = new THREE.CylinderGeometry(radius, radius, 2.5, 96, 1, true);
-          const wallMat = new THREE.MeshBasicMaterial({ 
-            color: 0x10b981, 
-            transparent: true, 
-            opacity: 0.22, 
-            side: THREE.DoubleSide, 
-            depthWrite: false 
-          });
-          const wall = new THREE.Mesh(wallGeo, wallMat);
-          wall.position.y = 1.25;
-          g.add(wall);
-          
-          g.userData = { fill, edge, wall };
-          three.scene.add(g);
-          townRangeGroups.set(hid, g);
-        } else {
-          // 기존 그룹 업데이트
-          const { fill, edge, wall } = g.userData || {};
-          
-          // 채우기 지오메트리 업데이트
-          const fg = new THREE.CircleGeometry(radius, 128);
-          fg.rotateX(-Math.PI / 2);
-          fill.geometry.dispose();
-          fill.geometry = fg;
-          
-          // 테두리 지오메트리 업데이트
-          const eg = new THREE.RingGeometry(Math.max(0, radius - 0.12), radius + 0.12, 192);
-          eg.rotateX(-Math.PI / 2);
-          edge.geometry.dispose();
-          edge.geometry = eg;
-          
-          // 벽 지오메트리 업데이트
-          const wg = new THREE.CylinderGeometry(radius, radius, 2.5, 96, 1, true);
-          wall.geometry.dispose();
-          wall.geometry = wg;
-          wall.position.y = 1.25;
-        }
-        
-        // 회관 위치에 그룹 배치
-        const hx = h.tile?.x || 0;
-        const hz = h.tile?.z || 0;
-        townRangeGroups.get(hid).position.set(hx, 0.0, hz);
-      }
-      
-      // 마을 범위 겹치는 부분 처리 - 겹치는 부분의 투명도를 조정
-      for (const [hid1, grp1] of townRangeGroups) {
-        const h1 = halls.find(h => h.id === hid1);
-        if (!h1) continue;
-        
-        const level1 = h1.level || 1;
-        const radius1 = 30 + 10 * (level1 - 1);
-        const pos1 = new THREE.Vector3(h1.tile?.x || 0, 0, h1.tile?.z || 0);
-        
-        let hasOverlap = false;
-        for (const [hid2, grp2] of townRangeGroups) {
-          if (hid1 === hid2) continue;
-          
-          const h2 = halls.find(h => h.id === hid2);
-          if (!h2) continue;
-          
-          const level2 = h2.level || 1;
-          const radius2 = 30 + 10 * (level2 - 1);
-          const pos2 = new THREE.Vector3(h2.tile?.x || 0, 0, h2.tile?.z || 0);
-          
-          const distance = pos1.distanceTo(pos2);
-          if (distance < radius1 + radius2) {
-            hasOverlap = true;
-            break;
-          }
-        }
-        
-        // 겹치는 경우 투명도 증가
-        const { fill, edge, wall } = grp1.userData || {};
-        if (hasOverlap) {
-          if (fill) fill.material.opacity = 0.06;
-          if (edge) edge.material.opacity = 0.6;
-          if (wall) wall.material.opacity = 0.15;
-        } else {
-          if (fill) fill.material.opacity = 0.12;
-          if (edge) edge.material.opacity = 0.9;
-          if (wall) wall.material.opacity = 0.22;
-        }
-      }
-      
-      // 정리
-      for (const [hid, grp] of Array.from(townRangeGroups.entries())) {
-        if (!seen.has(hid)) {
-          const { fill, edge, wall } = grp.userData || {};
-          for (const m of [fill, edge, wall]) {
-            if (m) {
-              if (m.geometry) m.geometry.dispose();
-              if (m.material) m.material.dispose();
-            }
-          }
-          three.scene.remove(grp);
-          townRangeGroups.delete(hid);
-        }
-      }
+      // 마을 범위 표시 업데이트
+      townRangeManager.updateTownRanges(state.buildings, placingType);
 
       // 건물 갱신
       threeRef.current?.refreshBuildings?.();
 
-      // 선택 링 (건물 혹은 유닛)
-      const selectedId = state.ui.selectedBuildingId;
-      const selectedUnitId = state.ui.selectedUnitId;
-      if (selectedId) {
-        const b = state.buildings[selectedId];
-        if (b) {
-          if (!threeRef.current.__selRing) {
-            const g = new THREE.RingGeometry(1.2, 1.35, 48);
-            g.rotateX(-Math.PI / 2);
-            const m = new THREE.MeshBasicMaterial({ 
-              color: 0x3b82f6, 
-              transparent: true, 
-              opacity: 0.85, 
-              side: THREE.DoubleSide 
-            });
-            const ring = new THREE.Mesh(g, m);
-            ring.position.y = 0.03;
-            three.scene.add(ring);
-            threeRef.current.__selRing = ring;
-          }
-          
-          const r = Math.max(1.2, (BUILDING_DEFS[b.type]?.placeRadius || 1.2));
-          const ring = threeRef.current.__selRing;
-          const newGeo = new THREE.RingGeometry(Math.max(0, r - 0.12), r + 0.12, 64);
-          newGeo.rotateX(-Math.PI / 2);
-          ring.geometry.dispose();
-          ring.geometry = newGeo;
-          ring.position.set(b.tile?.x || 0, 0.03, b.tile?.z || 0);
-          ring.visible = true;
-        }
-      } else if (selectedUnitId) {
-        const u = state.units[selectedUnitId];
-        if (u) {
-          if (!threeRef.current.__selRing) {
-            const g = new THREE.RingGeometry(0.7, 0.9, 48);
-            g.rotateX(-Math.PI / 2);
-            const m = new THREE.MeshBasicMaterial({ 
-              color: 0x3b82f6, 
-              transparent: true, 
-              opacity: 0.85, 
-              side: THREE.DoubleSide 
-            });
-            const ring = new THREE.Mesh(g, m);
-            ring.position.y = 0.03;
-            three.scene.add(ring);
-            threeRef.current.__selRing = ring;
-          }
-          const ring = threeRef.current.__selRing;
-          const newGeo = new THREE.RingGeometry(Math.max(0, 0.7 - 0.06), 0.9 + 0.06, 64);
-          newGeo.rotateX(-Math.PI / 2);
-          ring.geometry.dispose();
-          ring.geometry = newGeo;
-          ring.position.set(u.pos?.x || 0, 0.03, u.pos?.z || 0);
-          ring.visible = true;
-        }
-      } else if (threeRef.current.__selRing) {
-        threeRef.current.__selRing.visible = false;
-      }
+      // 선택 링 업데이트
+      selectionRingManager.updateSelectionRing(
+        state.buildings, 
+        state.units, 
+        state.ui.selectedBuildingId, 
+        state.ui.selectedUnitId
+      );
     });
-
-    const onMove = (e) => {
-      if (!state.ui.placing) return;
-      
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, hit);
-      
-      if (ghostMesh) {
-        // 유효성(반경) 체크에 따라 색상 변경
-        const placingType = state.ui.placing;
-        const halls = Object.values(state.buildings).filter(b => b.type === "town_hall" && !b.construct?.active);
-        let valid = true;
-        let outside = false;
-        
-        if (placingType !== 'town_hall') {
-          if (halls.length === 0) {
-            valid = false;
-            outside = true;
-          } else {
-            let insideAny = false;
-            for (const h of halls) {
-              const r = (30 + 10 * ((h.level || 1) - 1));
-              const cx = h.tile?.x || 0;
-              const cz = h.tile?.z || 0;
-              const d = Math.hypot(hit.x - cx, hit.z - cz);
-              if (d <= r) {
-                insideAny = true;
-                break;
-              }
-            }
-            valid = insideAny;
-            outside = !insideAny;
-          }
-        }
-        
-        // 다른 건물과 겹침 체크
-        const defPlace = BUILDING_DEFS[placingType];
-        const minDist = Math.max(1.5, defPlace?.placeRadius || 2.0);
-        let overlap = false;
-        
-        for (const id in state.buildings) {
-          const b = state.buildings[id];
-          const otherDefP = BUILDING_DEFS[b.type];
-          const otherR = Math.max(1.5, otherDefP?.placeRadius || 2.0);
-          const dx = (b.tile?.x || 0) - hit.x;
-          const dz = (b.tile?.z || 0) - hit.z;
-          if ((dx * dx + dz * dz) < ((minDist + otherR) * (minDist + otherR))) {
-            overlap = true;
-            break;
-          }
-        }
-        
-        valid = valid && !overlap;
-        ghostMesh.material.color.set(valid ? 0x22c55e : 0xef4444);
-        ghostMesh.position.set(hit.x, 0.75, hit.z);
-        const sizeMult = (defPlace?.placeRadius || 1.2) / 1.2;
-        ghostMesh.scale.set(1.2 * sizeMult, 1.0, 1.2 * sizeMult);
-
-        // 모든 마을 범위 그룹 색상 동기화
-        if (placingType !== 'town_hall') {
-          for (const [hid, grp] of townRangeGroups) {
-            const { fill, edge, wall } = grp.userData || {};
-            const col = valid && !outside ? 0x10b981 : 0xef4444;
-            const ecol = valid && !outside ? 0x065f46 : 0x991b1b;
-            if (fill) fill.material.color.set(col);
-            if (edge) edge.material.color.set(ecol);
-            if (wall) wall.material.color.set(col);
-          }
-        }
-      }
-    };
-
-    const onClick = (e) => {
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, hit);
-
-      // 선택 모드: placing이 아닐 때는 단일 클릭으로 인스펙터 열기
-      if (!state.ui.placing) {
-        // 1) 유닛 우선 피킹(가까운 원형 반경)
-        let bestUnit = null; let bestU2 = 999999;
-        for (const id in state.units) {
-          const u = state.units[id];
-          const x = u.pos?.x || 0; const z = u.pos?.z || 0;
-          const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
-          if (d2 < bestU2) { bestU2 = d2; bestUnit = id; }
-        }
-        if (bestUnit && bestU2 < 2.5*2.5) {
-          setSelectedUnit(bestUnit);
-          return;
-        }
-        // 2) 건물 피킹
-        let bestId = null; let bestD2 = 999999;
-        for (const id in state.buildings) {
-          const b = state.buildings[id];
-          const x = b.tile?.x || 0; const z = b.tile?.z || 0;
-          const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
-          if (d2 < bestD2) { bestD2 = d2; bestId = id; }
-        }
-        if (bestId && bestD2 < 4.0) { setSelectedBuilding(bestId); }
-        return;
-      }
-
-      const type = state.ui.placing;
-      const def = BUILDING_DEFS[type];
-      if (!def) return;
-
-      // 허용 반경 체크(다중 회관 중 하나라도 포함되면 OK)
-      if (type !== 'town_hall') {
-        const halls = Object.values(state.buildings).filter(b => b.type === "town_hall" && !b.construct?.active);
-        if (halls.length === 0) return;
-        
-        let insideAny = false;
-        for (const h of halls) {
-          const r = (30 + 10 * ((h.level || 1) - 1));
-          const cx = h.tile?.x || 0;
-          const cz = h.tile?.z || 0;
-          const d = Math.hypot(hit.x - cx, hit.z - cz);
-          if (d <= r) {
-            insideAny = true;
-            break;
-          }
-        }
-        if (!insideAny) return;
-      }
-
-      // 간단 겹침 체크(다른 건물과)
-      const defPlace2 = BUILDING_DEFS[type];
-      const minDist = Math.max(1.5, defPlace2?.placeRadius || 2.0);
-      for (const id in state.buildings) {
-        const b = state.buildings[id];
-        const otherDef2 = BUILDING_DEFS[b.type];
-        const otherR = Math.max(1.5, otherDef2?.placeRadius || 2.0);
-        const dx = (b.tile?.x || 0) - hit.x;
-        const dz = (b.tile?.z || 0) - hit.z;
-        if ((dx * dx + dz * dz) < ((minDist + otherR) * (minDist + otherR))) return;
-      }
-
-      // 배경 오브젝트 제거(나무/선인장/바위/얼음) - 일정 반경 내부
-      const clearR = Math.max(1.6, (defPlace2?.placeRadius || 1.2) + 0.6);
-      const clearR2 = clearR * clearR;
-      const group = threeRef.current?.scatterGroup;
-      if (group) {
-        const toRemove = [];
-        group.traverse((obj) => {
-          if (!obj.isMesh) return;
-          const dx = obj.position.x - hit.x;
-          const dz = obj.position.z - hit.z;
-          if (dx * dx + dz * dz <= clearR2) {
-            toRemove.push(obj);
-          }
-        });
-        for (const m of toRemove) {
-          group.remove(m);
-          if (m.geometry) m.geometry.dispose();
-          if (m.material) m.material.dispose();
-        }
-      }
-
-      // 비용 차감 및 배치 확정 + 인스펙터 자동 오픈
-      const ok = spend(def.build?.cost || {});
-      if (!ok) return;
-      
-      const id = uid("b");
-      addBuilding({ 
-        id, 
-        type, 
-        tile: { x: hit.x, z: hit.z }, 
-        level: 1, 
-        hp: def.baseHP || 200, 
-        hpMax: def.baseHP || 200, 
-        xp: 0, 
-        xpToNext: 50, 
-        capacity: def.baseCap || 1, 
-        workers: [], 
-        build: def.build, 
-        construct: { progress: 0, eta: def.build?.time || 10, active: true } 
-      });
-      
-      const idle = idleUnits();
-      const toAssign = Math.min(idle.length, (def.baseCap || 1));
-      for (let i = 0; i < toAssign; i++) {
-        assignUnitToBuilding(idle[i].id, id);
-      }
-      
-      setPlacing(null);
-      setSelectedBuilding(id);
-      // 갱신
-      threeRef.current?.refreshBuildings?.();
-    };
-
-    // 더블클릭 시 선택 + 포커스 이동
-    const onPick = (e) => {
-      if (state.ui.placing) return;
-      
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, hit);
-      
-      // 더블클릭: 유닛 또는 건물 포커스
-      let bestUnit = null; let bestU2 = 999999;
-      for (const id in state.units) {
-        const u = state.units[id];
-        const x = u.pos?.x || 0; const z = u.pos?.z || 0;
-        const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
-        if (d2 < bestU2) { bestU2 = d2; bestUnit = id; }
-      }
-      if (bestUnit && bestU2 < 2.0*2.0) {
-        setSelectedUnit(bestUnit);
-        const u = state.units[bestUnit];
-        if (u) threeRef.current.__focusTarget = new THREE.Vector3(u.pos?.x||0, 0, u.pos?.z||0);
-        return;
-      }
-      let bestId = null; let bestD2 = 999999;
-      for (const id in state.buildings) {
-        const b = state.buildings[id];
-        const x = b.tile?.x || 0; const z = b.tile?.z || 0;
-        const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
-        if (d2 < bestD2) { bestD2 = d2; bestId = id; }
-      }
-      if (bestId && bestD2 < 4.0) {
-        setSelectedBuilding(bestId);
-        const b = state.buildings[bestId];
-        if (b) threeRef.current.__focusTarget = new THREE.Vector3(b.tile?.x||0, 0, b.tile?.z||0);
-      }
-    };
-
-    renderer.domElement.addEventListener('mousemove', onMove);
-    renderer.domElement.addEventListener('click', onClick);
-    renderer.domElement.addEventListener('dblclick', onPick);
-    const preventCtx = (e)=>e.preventDefault();
-    const onRightClick = (e)=>{
-      if (state.ui.placing) return;
-      const rect = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(pointer, camera);
-      const hit = new THREE.Vector3();
-      raycaster.ray.intersectPlane(plane, hit);
-      const selU = state.ui.selectedUnitId; if (!selU) return;
-      setUnitMoveTarget(selU, hit.x, hit.z);
-    };
-    const onMouseUp = (e)=>{ if (e.button === 2) onRightClick(e); };
-    renderer.domElement.addEventListener('contextmenu', preventCtx);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
     
     return () => {
       unsub();
-      renderer.domElement.removeEventListener('mousemove', onMove);
-      renderer.domElement.removeEventListener('click', onClick);
-      renderer.domElement.removeEventListener('dblclick', onPick);
-      renderer.domElement.removeEventListener('contextmenu', preventCtx);
-      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      interactionHandler.dispose();
+      if (ghostMesh) {
+        scene.remove(ghostMesh);
+        ghostMesh.geometry.dispose();
+        ghostMesh.material.dispose();
+      }
     };
   }, [threeRef]);
 

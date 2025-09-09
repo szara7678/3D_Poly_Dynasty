@@ -29,7 +29,13 @@
 3d world/
 ├── src/
 │   ├── components/
-│   │   ├── Scene3D.jsx           # 카메라/지형/조명/에이전트 래퍼
+│   │   ├── Scene3D.jsx           # 메인 3D 씬 컴포넌트 (리팩토링됨)
+│   │   ├── managers/             # 3D 씬 관리 모듈들
+│   │   │   ├── BuildingManager.js    # 건물 렌더링 및 인스턴싱 관리
+│   │   │   ├── LabelManager.js       # 건설 ETA 라벨 및 시민 이름 라벨 관리
+│   │   │   ├── TownRangeManager.js   # 마을 범위 표시 및 겹침 처리
+│   │   │   ├── InteractionHandler.js # 마우스 상호작용 처리
+│   │   │   └── SelectionRingManager.js # 선택된 건물/유닛 링 표시
 │   │   └── agents/Agents.jsx     # InstancedMesh 에이전트 렌더러(상태/자체배회 혼합)
 │   ├── App.jsx                   # 게임 루프/HUD 연결
 │   ├── main.jsx                  # React 진입점

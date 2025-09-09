@@ -42,12 +42,37 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
     for(const k in parts){ parts[k].frustumCulled = false; parts[k].castShadow = false; parts[k].receiveShadow = false; }
     for(const k in parts){ parts[k].instanceMatrix.setUsage(THREE.DynamicDrawUsage); parts[k].count = 0; scene.add(parts[k]); }
 
-    // simple color per agent
-    // 현실적인 톤(어스톤) 고정 팔레트에서 순환
-    const palette = [
-      '#6b705c','#a5a58d','#b7b7a4','#cb997e','#ddbea9','#b08968','#7f5539','#9c6644'
-    ];
-    for(let i=0;i<maxCount;i++){ const c=new THREE.Color(palette[i%palette.length]); for(const k in parts){ parts[k].setColorAt(i,c); } }
+    // 시민별 외형 정보 활용 - units.js의 appearance 정보 사용
+    const appearanceById = new Map(); // 시민 ID별 외형 정보 저장
+    
+    // 외형 정보에서 색상 추출 함수
+    function getColorFromAppearance(appearance, part = 'top') {
+      if (!appearance) {
+        // 기본 색상 (appearance가 없는 경우)
+        const defaultPalette = ['#6b705c','#a5a58d','#b7b7a4','#cb997e','#ddbea9','#b08968','#7f5539','#9c6644'];
+        return new THREE.Color(defaultPalette[0]);
+      }
+      
+      if (part === 'top') {
+        return new THREE.Color(appearance.outfit?.topColor || '#6b705c');
+      } else if (part === 'bottom') {
+        return new THREE.Color(appearance.outfit?.bottomColor || '#5c677d');
+      }
+      return new THREE.Color(appearance.outfit?.topColor || '#6b705c');
+    }
+    
+    // 색상 할당 함수 (외형 정보 기반)
+    function assignAppearanceToCitizen(citizenId, instanceIndex, appearance) {
+      appearanceById.set(citizenId, appearance);
+      const color = getColorFromAppearance(appearance, 'top');
+      for(const k in parts){ parts[k].setColorAt(instanceIndex, color); }
+    }
+    
+    // 초기 색상 설정 (모든 슬롯을 기본 색상으로)
+    const defaultColor = new THREE.Color('#6b705c');
+    for(let i=0;i<maxCount;i++){ 
+      for(const k in parts){ parts[k].setColorAt(i, defaultColor); } 
+    }
     for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate=true; }
 
     // animate loop bound to renderer loop from parent
@@ -182,6 +207,10 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
           // 기울임 스무딩(미세)
           const bodyTilt = facing.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), tiltZ*0.8));
 
+          // 시민별 외형 정보 활용 (units.js의 appearance 정보)
+          const appearance = u.appearance || null;
+          assignAppearanceToCitizen(id, i, appearance);
+          
           place(parts.body,i,bodyPos,bodyTilt,new THREE.Vector3(1,1,1).multiplyScalar(size));
           const headPos = bodyPos.clone().add(new THREE.Vector3(0,1.05*size,0));
           place(parts.head,i,headPos,facing,new THREE.Vector3(size,size,size));
@@ -243,6 +272,8 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
       // 내부 배회자는 비활성화(테스트용 비주얼 제거)
       // 사용 개수만 렌더(잔상/깜빡임 방지)
       for(const k in parts){ parts[k].count = usedCount; parts[k].instanceMatrix.needsUpdate = true; }
+      // 색상 업데이트
+      for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate=true; }
       lastRenderT = now;
     }
 
