@@ -5,6 +5,7 @@ import { runReputation } from "./systems/reputation";
 import { runConstruction } from "./systems/construction";
 import { runBuildingXP } from "./systems/buildingXP";
 import { runSpawn } from "./systems/spawn";
+import { runMovement } from "./systems/movement";
 
 export const FIXED_DT = 0.5; // sec
 const TAX_INTERVAL = 10; // sec
@@ -28,6 +29,7 @@ function frame(now){
 }
 
 function tick(){
+  runMovement();
   runConstruction();
   runProduction();
   runBuildingXP();

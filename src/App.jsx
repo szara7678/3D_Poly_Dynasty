@@ -14,7 +14,6 @@ export default function App(){
 
     startGameLoop();
     const unsub = subscribe(()=>{
-      console.log(`App 상태 업데이트: 시민 ${Object.keys(state.units).length}명, 인구 ${state.population}`);
       force();
     });
     return unsub;

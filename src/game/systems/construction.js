@@ -1,4 +1,5 @@
 import { state, uid, addUnit, notify } from "../state";
+import { createRandomCitizen } from "../factory/citizen";
 
 export function runConstruction(){
   for(const id in state.buildings){
@@ -23,12 +24,10 @@ export function runConstruction(){
       b.construct.active=false;
       // 건설 완료 효과: 마을 회관이면 인구/수용력 +3
       if(b.type === "town_hall"){
-        console.log(`마을 회관 건설 완료! 시민 3명 추가`);
         state.population = (state.population||0) + 3;
         state.popCap = (state.popCap||0) + 3;
-        // 회관 주변에 시민 3명 스폰(유휴)
+        // 회관 주변에 시민 3명 스폰(유휴) — 무작위 생성 유틸 사용
         for(let i=0;i<3;i++){
-          const uidv = uid("u");
           // 회관에서 더 멀리, 기존 건물과 겹치지 않게 스폰(반경 5~7m)
           let ux=0, uz=0; let tries=0;
           while(true){
@@ -37,15 +36,12 @@ export function runConstruction(){
             let overlaps=false; for(const id2 in state.buildings){ const ob=state.buildings[id2]; const dx=(ob.tile?.x||0)-ux; const dz=(ob.tile?.z||0)-uz; if(dx*dx+dz*dz < 4.0){ overlaps=true; break; } }
             if(!overlaps || tries++>10) break;
           }
-          console.log(`시민 ${i+1} 생성: 위치 (${ux.toFixed(1)}, ${uz.toFixed(1)})`);
-          addUnit({ id: uidv, name:`시민${Object.keys(state.units).length+1}`, pos:{x:ux,y:0,z:uz}, hp:100, mp:20,
-            stats:{STR:5,AGI:5,VIT:5,INT:5}, skills:{Farming:0,Hunting:0,Gathering:0,Mining:0,Magic:0,Sword:0,Smithing:0,Admin:1},
-            state:"idle", assignedBuildingId:null, level:1, exp:0 });
+          const citizen = createRandomCitizen({ x: ux, y: 0, z: uz });
+          addUnit(citizen);
         }
         state.res.reputation = (state.res.reputation||0) + 5;
         // 명시적으로 상태 변경 알림
         notify();
-        console.log(`총 시민 수: ${Object.keys(state.units).length}, 인구: ${state.population}`);
       }
     }
   }

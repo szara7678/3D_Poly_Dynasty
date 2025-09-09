@@ -4,7 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { Agents } from "./agents/Agents.jsx";
 import { terrain } from "../world/terrain.js";
 import { updateKeyboardOrbit } from "../controls/keyboard.js";
-import { state, subscribe, spend, uid, addBuilding, idleUnits, assignUnitToBuilding, setPlacing, setSelectedBuilding } from "../game/state.js";
+import { state, subscribe, spend, uid, addBuilding, idleUnits, assignUnitToBuilding, setPlacing, setSelectedBuilding, setSelectedUnit, setUnitMoveTarget } from "../game/state.js";
 import { BUILDING_DEFS } from "../game/content/buildings.js";
 
 export default function Scene3D({ className = "", units = [], count = 260, maxCount = 800, timeScale = 1 }) {
@@ -160,27 +160,80 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       // 활성 건설 라벨 추가/업데이트
       for (const bid in state.buildings) {
         const b = state.buildings[bid];
-        if (!b || !b.construct?.active) continue;
+        if (!b) continue;
         
-        const eta = Math.max(0, b.construct?.eta || 0);
-        const text = `${eta.toFixed(1)}s`;
-        let entry = labelMap.get(bid);
-        
-        if (!entry) {
-          entry = makeLabelSprite(text);
-          labelMap.set(bid, entry);
+        // 건설 중인 건물의 ETA 표시
+        if (b.construct?.active) {
+          const eta = Math.max(0, b.construct?.eta || 0);
+          const text = `${eta.toFixed(1)}s`;
+          let entry = labelMap.get(bid);
+          
+          if (!entry) {
+            entry = makeLabelSprite(text);
+            labelMap.set(bid, entry);
+          }
+          
+          if (entry.lastText !== text) {
+            entry.draw(text);
+            entry.sprite.material.map.needsUpdate = true;
+            entry.lastText = text;
+          }
+          
+          const progress = Math.max(0.1, Math.min(1, b.construct?.progress || 0));
+          const baseH = 1.0;
+          const height = baseH * (0.2 + 0.8 * progress);
+          entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
         }
-        
-        if (entry.lastText !== text) {
-          entry.draw(text);
-          entry.sprite.material.map.needsUpdate = true;
-          entry.lastText = text;
+        // 완성된 건물의 숨겨진 시민들 표시
+        else if (!b.construct?.active) {
+          const hiddenWorkers = Object.values(state.units).filter(u => 
+            u.hidden && u.hiddenBuildingId === bid
+          );
+          
+          if (hiddenWorkers.length > 0) {
+            // 기존 라벨들 제거
+            for (let i = 0; i < 10; i++) { // 최대 10개까지 지원
+              const labelKey = `${bid}_worker_${i}`;
+              const entry = labelMap.get(labelKey);
+              if (entry) {
+                scene.remove(entry.sprite);
+                labelMap.delete(labelKey);
+              }
+            }
+            
+            // 각 시민별로 개별 라벨 생성
+            hiddenWorkers.forEach((worker, index) => {
+              const labelKey = `${bid}_worker_${index}`;
+              const text = worker.name;
+              let entry = labelMap.get(labelKey);
+              
+              if (!entry) {
+                entry = makeLabelSprite(text);
+                labelMap.set(labelKey, entry);
+              }
+              
+              if (entry.lastText !== text) {
+                entry.draw(text);
+                entry.sprite.material.map.needsUpdate = true;
+                entry.lastText = text;
+              }
+              
+              const baseH = 1.0;
+              const height = baseH + (index * 0.5); // 세로로 배치 (간격 증가)
+              entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
+            });
+          } else {
+            // 숨겨진 시민이 없으면 모든 라벨 제거
+            for (let i = 0; i < 10; i++) {
+              const labelKey = `${bid}_worker_${i}`;
+              const entry = labelMap.get(labelKey);
+              if (entry) {
+                scene.remove(entry.sprite);
+                labelMap.delete(labelKey);
+              }
+            }
+          }
         }
-        
-        const progress = Math.max(0.1, Math.min(1, b.construct?.progress || 0));
-        const baseH = 1.0;
-        const height = baseH * (0.2 + 0.8 * progress);
-        entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
       }
     }
 
@@ -469,8 +522,9 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       // 건물 갱신
       threeRef.current?.refreshBuildings?.();
 
-      // 선택 링
+      // 선택 링 (건물 혹은 유닛)
       const selectedId = state.ui.selectedBuildingId;
+      const selectedUnitId = state.ui.selectedUnitId;
       if (selectedId) {
         const b = state.buildings[selectedId];
         if (b) {
@@ -496,6 +550,31 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
           ring.geometry.dispose();
           ring.geometry = newGeo;
           ring.position.set(b.tile?.x || 0, 0.03, b.tile?.z || 0);
+          ring.visible = true;
+        }
+      } else if (selectedUnitId) {
+        const u = state.units[selectedUnitId];
+        if (u) {
+          if (!threeRef.current.__selRing) {
+            const g = new THREE.RingGeometry(0.7, 0.9, 48);
+            g.rotateX(-Math.PI / 2);
+            const m = new THREE.MeshBasicMaterial({ 
+              color: 0x3b82f6, 
+              transparent: true, 
+              opacity: 0.85, 
+              side: THREE.DoubleSide 
+            });
+            const ring = new THREE.Mesh(g, m);
+            ring.position.y = 0.03;
+            three.scene.add(ring);
+            threeRef.current.__selRing = ring;
+          }
+          const ring = threeRef.current.__selRing;
+          const newGeo = new THREE.RingGeometry(Math.max(0, 0.7 - 0.06), 0.9 + 0.06, 64);
+          newGeo.rotateX(-Math.PI / 2);
+          ring.geometry.dispose();
+          ring.geometry = newGeo;
+          ring.position.set(u.pos?.x || 0, 0.03, u.pos?.z || 0);
           ring.visible = true;
         }
       } else if (threeRef.current.__selRing) {
@@ -588,23 +667,27 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
 
       // 선택 모드: placing이 아닐 때는 단일 클릭으로 인스펙터 열기
       if (!state.ui.placing) {
-        let bestId = null;
-        let bestD2 = 999999;
+        // 1) 유닛 우선 피킹(가까운 원형 반경)
+        let bestUnit = null; let bestU2 = 999999;
+        for (const id in state.units) {
+          const u = state.units[id];
+          const x = u.pos?.x || 0; const z = u.pos?.z || 0;
+          const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
+          if (d2 < bestU2) { bestU2 = d2; bestUnit = id; }
+        }
+        if (bestUnit && bestU2 < 2.5*2.5) {
+          setSelectedUnit(bestUnit);
+          return;
+        }
+        // 2) 건물 피킹
+        let bestId = null; let bestD2 = 999999;
         for (const id in state.buildings) {
           const b = state.buildings[id];
-          const x = b.tile?.x || 0;
-          const z = b.tile?.z || 0;
-          const dx = x - hit.x;
-          const dz = z - hit.z;
-          const d2 = dx * dx + dz * dz;
-          if (d2 < bestD2) {
-            bestD2 = d2;
-            bestId = id;
-          }
+          const x = b.tile?.x || 0; const z = b.tile?.z || 0;
+          const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
+          if (d2 < bestD2) { bestD2 = d2; bestId = id; }
         }
-        if (bestId && bestD2 < 4.0) {
-          setSelectedBuilding(bestId);
-        }
+        if (bestId && bestD2 < 4.0) { setSelectedBuilding(bestId); }
         return;
       }
 
@@ -707,55 +790,70 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       const hit = new THREE.Vector3();
       raycaster.ray.intersectPlane(plane, hit);
       
-      let bestId = null;
-      let bestD2 = 999999;
+      // 더블클릭: 유닛 또는 건물 포커스
+      let bestUnit = null; let bestU2 = 999999;
+      for (const id in state.units) {
+        const u = state.units[id];
+        const x = u.pos?.x || 0; const z = u.pos?.z || 0;
+        const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
+        if (d2 < bestU2) { bestU2 = d2; bestUnit = id; }
+      }
+      if (bestUnit && bestU2 < 2.0*2.0) {
+        setSelectedUnit(bestUnit);
+        const u = state.units[bestUnit];
+        if (u) threeRef.current.__focusTarget = new THREE.Vector3(u.pos?.x||0, 0, u.pos?.z||0);
+        return;
+      }
+      let bestId = null; let bestD2 = 999999;
       for (const id in state.buildings) {
         const b = state.buildings[id];
-        const x = b.tile?.x || 0;
-        const z = b.tile?.z || 0;
-        const dx = x - hit.x;
-        const dz = z - hit.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < bestD2) {
-          bestD2 = d2;
-          bestId = id;
-        }
+        const x = b.tile?.x || 0; const z = b.tile?.z || 0;
+        const dx = x - hit.x; const dz = z - hit.z; const d2 = dx*dx + dz*dz;
+        if (d2 < bestD2) { bestD2 = d2; bestId = id; }
       }
-      
       if (bestId && bestD2 < 4.0) {
         setSelectedBuilding(bestId);
         const b = state.buildings[bestId];
-        if (b) {
-          threeRef.current.__focusTarget = new THREE.Vector3(b.tile?.x || 0, 0, b.tile?.z || 0);
-        }
+        if (b) threeRef.current.__focusTarget = new THREE.Vector3(b.tile?.x||0, 0, b.tile?.z||0);
       }
     };
 
     renderer.domElement.addEventListener('mousemove', onMove);
     renderer.domElement.addEventListener('click', onClick);
     renderer.domElement.addEventListener('dblclick', onPick);
+    const preventCtx = (e)=>e.preventDefault();
+    const onRightClick = (e)=>{
+      if (state.ui.placing) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hit = new THREE.Vector3();
+      raycaster.ray.intersectPlane(plane, hit);
+      const selU = state.ui.selectedUnitId; if (!selU) return;
+      setUnitMoveTarget(selU, hit.x, hit.z);
+    };
+    const onMouseUp = (e)=>{ if (e.button === 2) onRightClick(e); };
+    renderer.domElement.addEventListener('contextmenu', preventCtx);
+    renderer.domElement.addEventListener('mouseup', onMouseUp);
     
     return () => {
       unsub();
       renderer.domElement.removeEventListener('mousemove', onMove);
       renderer.domElement.removeEventListener('click', onClick);
       renderer.domElement.removeEventListener('dblclick', onPick);
+      renderer.domElement.removeEventListener('contextmenu', preventCtx);
+      renderer.domElement.removeEventListener('mouseup', onMouseUp);
     };
   }, [threeRef]);
 
   // 초기 마운트 상태 추적
   const [hasInitialUnits, setHasInitialUnits] = React.useState(false);
   
-  // 디버깅용 로그 + 조건부 리마운트
+  // 조건부 리마운트
   React.useEffect(() => {
-    console.log(`Scene3D units 업데이트: ${units.length}명`);
-    units.forEach((u, i) => {
-      console.log(`  유닛 ${i}: ${u.name} 위치(${u.pos?.x?.toFixed(1)}, ${u.pos?.z?.toFixed(1)}) 상태:${u.state}`);
-    });
-    
     // 처음으로 유닛이 생성될 때만 리마운트
     if (units.length > 0 && !hasInitialUnits) {
-      console.log('처음 유닛 생성 감지 - Agents 컴포넌트 리마운트');
       setHasInitialUnits(true);
     }
   }, [units, hasInitialUnits]);

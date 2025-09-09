@@ -10,7 +10,7 @@ export const initialState = () => ({
   buildings: {},
   sim: { timeScale: 1, paused: false },
   world: { seed: 12345 },
-  ui: { placing: null, selectedBuildingId: null }, // placing: BuildingType|null
+  ui: { placing: null, selectedBuildingId: null, selectedUnitId: null }, // placing: BuildingType|null
 });
 
 export const state = initialState();
@@ -36,16 +36,15 @@ let idc=1; export const uid = (p="id") => `${p}_${idc++}`;
 
 // 편의 액션들(일부)
 export function addUnit(u){ 
-  console.log(`addUnit 호출: ${u.name} (${u.id}) 위치 (${u.pos?.x?.toFixed(1)}, ${u.pos?.z?.toFixed(1)})`);
   state.units[u.id]=u; 
   notify(); 
-  console.log(`addUnit 완료: 총 유닛 ${Object.keys(state.units).length}개`);
 }
 export function addBuilding(b){ state.buildings[b.id]=b; notify(); }
 
 // UI 상태
 export function setPlacing(type){ state.ui.placing = type; notify(); }
-export function setSelectedBuilding(id){ state.ui.selectedBuildingId = id; notify(); }
+export function setSelectedBuilding(id){ state.ui.selectedBuildingId = id; if(id){ state.ui.selectedUnitId = null; } notify(); }
+export function setSelectedUnit(id){ state.ui.selectedUnitId = id; if(id){ state.ui.selectedBuildingId = null; } notify(); }
 
 // 자원 코스트 확인/지출
 export function canAfford(cost){
@@ -73,16 +72,71 @@ export function assignUnitToBuilding(unitId, buildingId){
   notify();
   return true;
 }
+
+// 부르기(내보내기) - 시민을 건물로 이동시키고 도착하면 사라지게 함
+export function callUnitToBuilding(unitId, buildingId){
+  const u = state.units[unitId]; const b = state.buildings[buildingId]; if(!u||!b) return false;
+  if(!b.workers?.includes(unitId)) return false; // 배치된 시민만 부를 수 있음
+  
+  // 건물 앞쪽으로 이동 목표 설정
+  const buildingPos = b.tile || { x: 0, z: 0 };
+  const callPos = { 
+    x: buildingPos.x + 1.5, // 건물 앞쪽
+    y: 0, 
+    z: buildingPos.z 
+  };
+  
+  u.moveTo = callPos;
+  u.state = "moving";
+  u.__callTarget = buildingId; // 부르기 목표 건물 저장
+  notify();
+  return true;
+}
 export function unassignUnit(unitId){
   const u = state.units[unitId]; if(!u) return false;
   const bid = u.assignedBuildingId; if(!bid){ u.state = "idle"; notify(); return true; }
   const b = state.buildings[bid];
   if(b && Array.isArray(b.workers)) b.workers = b.workers.filter(id=>id!==unitId);
-  u.assignedBuildingId = null; u.state = "idle";
+  u.assignedBuildingId = null; 
+  u.state = "idle";
+  u.hidden = false; // 숨김 상태 해제
+  u.hiddenBuildingId = null;
+  notify();
+  return true;
+}
+
+// 내보내기 - 숨겨진 시민을 건물 주변으로 이동시키고 모습 활성화
+export function exportUnitFromBuilding(unitId, buildingId){
+  const u = state.units[unitId]; const b = state.buildings[buildingId]; if(!u||!b) return false;
+  if(!u.hidden || u.hiddenBuildingId !== buildingId) return false; // 숨겨진 시민만 내보내기 가능
+  
+  // 건물 주변 랜덤 위치로 이동
+  const buildingPos = b.tile || { x: 0, z: 0 };
+  const angle = Math.random() * Math.PI * 2;
+  const distance = 2 + Math.random() * 2; // 2~4 거리
+  const exportPos = {
+    x: buildingPos.x + Math.cos(angle) * distance,
+    y: 0,
+    z: buildingPos.z + Math.sin(angle) * distance
+  };
+  
+  u.pos = exportPos;
+  u.state = "idle";
+  u.hidden = false;
+  u.hiddenBuildingId = null;
   notify();
   return true;
 }
 
 export function idleUnits(){ return Object.values(state.units).filter(u=>!u.assignedBuildingId && (u.state==="idle"||u.state==="moving")); }
+
+export function setUnitMoveTarget(unitId, x, z){
+  const u = state.units[unitId]; if(!u) return false;
+  if(!u.pos) u.pos = { x:0, y:0, z:0 };
+  u.moveTo = { x, z };
+  u.state = "moving";
+  notify();
+  return true;
+}
 
 

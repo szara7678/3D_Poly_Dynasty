@@ -358,3 +358,79 @@ console.log(`총 시민 수: ${Object.keys(state.units).length}, 인구: ${state
 - ✅ 마을 회관 건설 시 시민 3명 생성 로직 개선
 - ✅ UI 업데이트 보장을 위한 명시적 notify() 호출
 - ✅ 디버깅 정보 추가로 문제 추적 가능
+
+---
+
+## 2025-09-09 - 시민 스탯/스킬/수련치/인벤토리 도입 + 랜덤 스폰
+
+### 📦 추가 파일
+1. `src/game/content/units.js`
+   - `STAT_KEYS`, `SKILL_KEYS`, `BASE_STATS`, `DEFAULT_INVENTORY()`
+   - `rollStats()`, `rollSkills()`, `rollTraining()`
+   - `randomName()`, `randomAppearance()`
+2. `src/game/factory/citizen.js`
+   - `createRandomCitizen(pos)` — 무작위 이름/외형/스탯/스킬/수련치/인벤토리 부여
+
+### 🔧 변경 파일
+1. `src/game/systems/construction.js`
+   - 회관 완공 시 시민 스폰을 `createRandomCitizen` 기반으로 교체
+   - 랜덤 외형/이름/스탯/스킬/수련치가 적용되도록 통합
+
+### ✅ 효과
+- 회관 완공마다 고유한 시민이 생성되어 몰입 및 다양성 향상
+- `Agents`는 `size/pos/dir`를 반영하여 즉시 시각화
+
+### 👆 시민 선택 및 인스펙터 3단 UI
+
+#### 변경 파일
+1. `src/game/state.js`
+   - `ui.selectedUnitId` 추가, `setSelectedUnit(id)`/상호배타 로직(건물 선택 해제)
+2. `src/components/Scene3D.jsx`
+   - 클릭/더블클릭 피킹: 유닛 우선 → 건물, 선택 링(유닛/건물 공용)
+3. `src/components/Inspector.jsx`
+   - 시민 선택 시 3단 정보 표시(스탯, 스킬/수련 스크롤, 인벤토리 스크롤)
+
+#### 효과
+- 시민을 클릭하면 건물과 동일한 방식으로 선택/포커스 가능
+- 인스펙터에서 시민 능력치/스킬(재능)/수련치/인벤토리를 직관적으로 확인
+
+### 🏷️ 시민 머리 위 라벨 + 선택 하이라이트
+
+#### 변경 파일
+1. `src/components/agents/Agents.jsx`
+   - 이름 + 작업 이모지 라벨(Sprite) 추가, 작업 이모지 매핑(건물 타입→이모지)
+   - 선택된 유닛에 헤드 주변 할로 스프라이트 표시(아웃라인 유사)
+
+#### 효과
+- 각 시민 머리 위에 이름과 현재 배정 작업 상태가 이모지로 표시됨
+- 선택 시 시각적 강조로 식별성 향상
+
+### 🖱️ 우클릭 이동(시민)
+
+#### 추가/변경 파일
+1. `src/game/systems/movement.js` (신규)
+   - `runMovement()` 추가: `unit.moveTo`가 있으면 목표로 보간 이동, 도달 시 idle
+2. `src/game/gameLoop.js`
+   - 틱 순서에 `runMovement()` 추가
+3. `src/game/state.js`
+   - `setUnitMoveTarget(unitId, x, z)` 액션 추가
+4. `src/components/Scene3D.jsx`
+   - 선정 유닛이 있을 때 우클릭 지점으로 이동 명령 발행(컨텍스트 메뉴 차단)
+
+#### 효과
+- 시민을 클릭해 선택 후, 땅을 우클릭하면 해당 지점으로 이동합니다.
+### 🧠 수련 → practice(0~5) 개편 및 재능 영향
+
+#### 변경 파일
+1. `src/game/content/units.js`
+   - `rollTraining()` → `rollPractice()`(정수 0~5), `rollSkills()` → `rollTalent()`로 명칭 변경
+2. `src/game/factory/citizen.js`
+   - 생성 필드: `skills`는 재능, `practice`는 수련치로 채움
+3. `src/components/Inspector.jsx`
+   - 스킬 목록을 `이름(재능) 수련치` 포맷으로 병합 표시
+4. `src/game/systems/production.js`
+   - 생산 효율에 수련치(단계당 +4%) 반영, 재능은 소폭 유지(0.4배)
+
+#### 효과
+- 수련치가 높을수록 관련 행동의 즉시 효율 증가
+- 재능은 수련 속도(향후 성장 로직)와 소폭 효율에 기여

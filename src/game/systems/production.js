@@ -11,7 +11,10 @@ export function runProduction(){
       const cap = Math.max(1, b.capacity||1);
       let mult = levelMult;
       for(const u of workers){
-        const s = (u.skills?.[skillKey]||0)/100; mult += (s*0.6)/cap;
+        const talent = (u.talents?.[skillKey]||0)/100; // 재능: 수련 속도 영향(여기선 소폭 효율에도 반영)
+        const practice = Math.max(0, Math.min(5, (u.practice?.[skillKey]||0)));
+        const practiceBonus = practice * 0.04; // 수련 1단계당 +4% 효율
+        mult += (talent*0.4 + practiceBonus)/cap;
         const { STR=0,AGI=0,VIT=0,INT=0 } = u.stats||{};
         mult += (STR*0.02 + AGI*0.01 + VIT*0.02 + INT*0.03)/100;
       }
