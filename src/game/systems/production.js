@@ -79,8 +79,8 @@ export function runProduction(){
           
           const efficiency = levelMult + talent*0.4 + practiceBonus + statBonus + relevantStatBonus;
           
-          // 인구수 배율 추가
-          const populationMultiplier = Math.max(1, state.population * 0.1);
+          // 인구수 배율: 마을 회관에서만 적용
+          const populationMultiplier = (b.type === 'town_hall') ? Math.max(1, state.population * 0.1) : 1;
           const finalEfficiency = efficiency * populationMultiplier;
           
           // 생산 진행률 증가 (고정 속도)

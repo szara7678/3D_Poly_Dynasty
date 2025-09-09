@@ -1,4 +1,5 @@
 // 수련치 상승 시스템 - 생산, 전투 등 스킬 사용으로 인한 수련치 상승 관리
+import { calculateHP, calculateMP, calculateCombatStats } from "../factory/citizen";
 
 /**
  * 스킬별 스탯 증가 매핑
@@ -42,23 +43,21 @@ export function increaseStatsOnPractice(worker, skillKey, practiceIncrease = 1) 
       console.log(`${worker.name}의 ${statKey} 스탯 증가! (+${increase * levelIncrease})`);
     }
     
-    // HP 재계산 (체력 기반)
+    // HP/MP 최대치 재계산 및 현재치 보정
     if (worker.stats.VIT) {
-      worker.hp = 100 + Math.floor((worker.stats.VIT - 5) * 6);
+      worker.hpMax = calculateHP(worker.stats.VIT);
+      if (typeof worker.hp !== 'number') worker.hp = worker.hpMax;
+      else worker.hp = Math.min(worker.hp, worker.hpMax);
     }
-    
-    // MP 재계산 (지력 기반)
     if (worker.stats.INT) {
-      worker.mp = 20 + Math.floor((worker.stats.INT - 5) * 6);
+      worker.mpMax = calculateMP(worker.stats.INT);
+      if (typeof worker.mp !== 'number') worker.mp = worker.mpMax;
+      else worker.mp = Math.min(worker.mp, worker.mpMax);
     }
     
     // 전투 스탯 재계산
     if (worker.stats) {
-      worker.combatStats = {
-        attack: Math.floor(worker.stats.STR * 2 + worker.stats.AGI * 0.5),
-        defense: Math.floor(worker.stats.VIT * 1.5 + worker.stats.AGI * 0.5),
-        magicAttack: Math.floor(worker.stats.INT * 2),
-      };
+      worker.combatStats = calculateCombatStats(worker.stats);
     }
   }
 }

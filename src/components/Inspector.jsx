@@ -16,27 +16,27 @@ export default function Inspector(){
     const invEntries = Object.entries(inv.items||{});
 
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm">
-        <div className="flex items-center justify-between">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm relative">
+        <div className="flex items-center justify-between pr-6">
           <div className="font-semibold">{u.name}</div>
-          <div className="text-xs text-slate-600">Lv.{u.level||1} · HP {u.hp||0} · MP {u.mp||0}</div>
         </div>
-        <div className="mt-1 text-right">
-          <button className="text-xs text-slate-600 hover:underline" onClick={()=>setSelectedUnit(null)}>닫기</button>
-        </div>
+        <button
+          className="absolute right-2 top-2 text-slate-500 hover:text-slate-800"
+          aria-label="닫기"
+          onClick={()=>setSelectedUnit(null)}
+        >
+          ✕
+        </button>
         <div className="mt-2 grid grid-cols-3 gap-3">
           <div className="border rounded-lg p-2">
-            <div className="font-medium text-slate-700 mb-1">스탯</div>
-            <div className="space-y-1">
+            <div className="space-y-1 text-xs">
+              <div>레벨: <span className="font-semibold">{u.level||1}</span></div>
+              <div>HP: <span className="font-semibold">{u.hp||0}/{u.hpMax||0}</span></div>
+              <div>MP: <span className="font-semibold">{u.mp||0}/{u.mpMax||0}</span></div>
               <div>STR: <span className="font-semibold">{stats.STR||0}</span></div>
               <div>AGI: <span className="font-semibold">{stats.AGI||0}</span></div>
               <div>VIT: <span className="font-semibold">{stats.VIT||0}</span></div>
               <div>INT: <span className="font-semibold">{stats.INT||0}</span></div>
-            </div>
-          </div>
-          <div className="border rounded-lg p-2">
-            <div className="font-medium text-slate-700 mb-1">전투 스탯</div>
-            <div className="space-y-1">
               <div>공격력: <span className="font-semibold">{u.combatStats?.attack||0}</span></div>
               <div>방어력: <span className="font-semibold">{u.combatStats?.defense||0}</span></div>
               <div>마법공격: <span className="font-semibold">{u.combatStats?.magicAttack||0}</span></div>
@@ -57,8 +57,6 @@ export default function Inspector(){
               {skillEntries.length===0 && <div className="text-xs text-slate-400">스킬 없음</div>}
             </div>
           </div>
-        </div>
-        <div className="mt-2">
           <div className="border rounded-lg p-2">
             <div className="font-medium text-slate-700 mb-1">인벤토리</div>
             <div className="max-h-56 overflow-auto pr-1 space-y-1">
