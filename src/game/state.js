@@ -137,4 +137,19 @@ export function setUnitMoveTarget(unitId, x, z){
   return true;
 }
 
+// 이름 변경 함수들
+export function setUnitName(unitId, newName){
+  const u = state.units[unitId]; if(!u) return false;
+  u.name = newName.trim() || u.name; // 빈 문자열이면 기존 이름 유지
+  notify();
+  return true;
+}
+
+export function setBuildingName(buildingId, newName){
+  const b = state.buildings[buildingId]; if(!b) return false;
+  b.name = newName.trim() || b.name; // 빈 문자열이면 기존 이름 유지
+  notify();
+  return true;
+}
+
 

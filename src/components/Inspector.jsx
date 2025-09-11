@@ -1,13 +1,73 @@
-import React from "react";
-import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding } from "../game/state";
+import React, { useRef, useEffect } from "react";
+import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName } from "../game/state";
 import { BUILDING_DEFS } from "../game/content/buildings";
 
 export default function Inspector(){
   const [, force] = React.useReducer(x=>x+1,0);
+  const [editingName, setEditingName] = React.useState(null);
+  const [tempName, setTempName] = React.useState("");
+  const inspectorRef = useRef(null);
+  
   React.useEffect(()=>{ const u = subscribe(()=>force()); return u; },[]);
+  
+  // 외부 클릭 감지
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (inspectorRef.current && !inspectorRef.current.contains(event.target)) {
+        // 인스펙터 외부 클릭 시 선택 해제
+        if (state.ui.selectedBuildingId) {
+          setSelectedBuilding(null);
+        }
+        if (state.ui.selectedUnitId) {
+          setSelectedUnit(null);
+        }
+      }
+    };
+
+    const selBId = state.ui.selectedBuildingId;
+    const selUId = state.ui.selectedUnitId;
+    if (selBId || selUId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [state.ui.selectedBuildingId, state.ui.selectedUnitId]);
+
   const selBId = state.ui.selectedBuildingId;
   const selUId = state.ui.selectedUnitId;
   if(!selBId && !selUId) return null;
+
+  const handleNameEdit = (type, id, currentName) => {
+    setEditingName(type === 'unit' ? `unit_${id}` : `building_${id}`);
+    setTempName(currentName);
+  };
+
+  const handleNameSave = () => {
+    if (editingName?.startsWith('unit_')) {
+      const unitId = editingName.replace('unit_', '');
+      setUnitName(unitId, tempName);
+    } else if (editingName?.startsWith('building_')) {
+      const buildingId = editingName.replace('building_', '');
+      setBuildingName(buildingId, tempName);
+    }
+    setEditingName(null);
+    setTempName("");
+  };
+
+  const handleNameCancel = () => {
+    setEditingName(null);
+    setTempName("");
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleNameSave();
+    } else if (e.key === 'Escape') {
+      handleNameCancel();
+    }
+  };
 
   if(selUId){
     const u = state.units[selUId]; if(!u) return null;
@@ -17,9 +77,29 @@ export default function Inspector(){
     const invEntries = Object.entries(inv.items||{});
 
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm" ref={inspectorRef}>
         <div className="flex items-center justify-between">
-          <div className="font-semibold">{u.name}</div>
+          <div className="flex items-center gap-2">
+            {editingName === `unit_${u.id}` ? (
+              <input
+                type="text"
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                onKeyDown={handleKeyPress}
+                onBlur={handleNameSave}
+                className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none"
+                autoFocus
+              />
+            ) : (
+              <div className="font-semibold">{u.name}</div>
+            )}
+            <button 
+              className="text-slate-400 hover:text-slate-600 text-sm"
+              onClick={() => handleNameEdit('unit', u.id, u.name)}
+            >
+              ✏️
+            </button>
+          </div>
           <button className="text-slate-400 hover:text-slate-600 text-lg font-bold" onClick={()=>setSelectedUnit(null)}>×</button>
         </div>
         <div className="mt-2 grid grid-cols-3 gap-3">
@@ -90,9 +170,29 @@ export default function Inspector(){
   const onExport = (uid)=>{ exportUnitFromBuilding(uid, b.id); };
 
   return (
-    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[520px] text-sm">
+    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[520px] text-sm" ref={inspectorRef}>
       <div className="flex items-center justify-between">
-        <div className="font-semibold">{def.name||b.type} Lv.{b.level||1}</div>
+        <div className="flex items-center gap-2">
+          {editingName === `building_${b.id}` ? (
+            <input
+              type="text"
+              value={tempName}
+              onChange={(e) => setTempName(e.target.value)}
+              onKeyDown={handleKeyPress}
+              onBlur={handleNameSave}
+              className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none"
+              autoFocus
+            />
+          ) : (
+            <div className="font-semibold">{b.name || def.name || b.type} Lv.{b.level||1}</div>
+          )}
+          <button 
+            className="text-slate-400 hover:text-slate-600 text-sm"
+            onClick={() => handleNameEdit('building', b.id, b.name || def.name || b.type)}
+          >
+            ✏️
+          </button>
+        </div>
         <div className="text-xs text-slate-600">HP {b.hp||0}/{b.hpMax||0} · XP {Math.floor(b.xp||0)}/{b.xpToNext||0}</div>
       </div>
       <div className="mt-1 text-right">

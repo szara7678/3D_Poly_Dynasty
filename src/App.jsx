@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import HUD from "./components/HUD.jsx";
 import Scene3D from "./components/Scene3D.jsx";
-import BuildMenu from "./components/BuildMenu.jsx";
+import MainMenu from "./components/MainMenu.jsx";
 import Inspector from "./components/Inspector.jsx";
 import { startGameLoop } from "./game/gameLoop";
 import { state, addUnit, uid, subscribe } from "./game/state";
@@ -24,7 +24,7 @@ export default function App(){
       {/* Scene3D가 상태 변화를 반영하도록 간단 재렌더 트리거 */}
       <Scene3D className="w-full h-full" units={Object.values(state.units)} timeScale={state.sim.timeScale} />
       <HUD />
-      <BuildMenu />
+      <MainMenu />
       <Inspector />
     </div>
   );
