@@ -12,39 +12,43 @@ export default function Inspector(){
   if(selUId){
     const u = state.units[selUId]; if(!u) return null;
     const stats = u.stats||{}; const talents = u.talents||{}; const practice = u.practice||{}; const inv = u.inventory||{ items:{}, equipment:{} };
-    const skillEntries = Object.entries(talents).sort((a,b)=>b[1]-a[1]);
+    const skillOrder = ['Sword', 'Magic', 'Admin', 'Farming', 'Woodcutting', 'Mining', 'Gathering', 'Smithing'];
+    const skillEntries = skillOrder.map(skill => [skill, talents[skill] || 0]).filter(([_, value]) => value > 0);
     const invEntries = Object.entries(inv.items||{});
 
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm relative">
-        <div className="flex items-center justify-between pr-6">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm">
+        <div className="flex items-center justify-between">
           <div className="font-semibold">{u.name}</div>
+          <button className="text-slate-400 hover:text-slate-600 text-lg font-bold" onClick={()=>setSelectedUnit(null)}>×</button>
         </div>
-        <button
-          className="absolute right-2 top-2 text-slate-500 hover:text-slate-800"
-          aria-label="닫기"
-          onClick={()=>setSelectedUnit(null)}
-        >
-          ✕
-        </button>
         <div className="mt-2 grid grid-cols-3 gap-3">
-          <div className="border rounded-lg p-2">
-            <div className="space-y-1 text-xs">
-              <div>레벨: <span className="font-semibold">{u.level||1}</span></div>
-              <div>HP: <span className="font-semibold">{u.hp||0}/{u.hpMax||0}</span></div>
-              <div>MP: <span className="font-semibold">{u.mp||0}/{u.mpMax||0}</span></div>
-              <div>STR: <span className="font-semibold">{stats.STR||0}</span></div>
-              <div>AGI: <span className="font-semibold">{stats.AGI||0}</span></div>
-              <div>VIT: <span className="font-semibold">{stats.VIT||0}</span></div>
-              <div>INT: <span className="font-semibold">{stats.INT||0}</span></div>
-              <div>공격력: <span className="font-semibold">{u.combatStats?.attack||0}</span></div>
-              <div>방어력: <span className="font-semibold">{u.combatStats?.defense||0}</span></div>
-              <div>마법공격: <span className="font-semibold">{u.combatStats?.magicAttack||0}</span></div>
+          <div className="border rounded-lg p-2 h-56 flex flex-col">
+            <div className="font-medium text-slate-700 mb-1">기본 정보</div>
+            <div className="flex-1 overflow-auto space-y-1">
+              <div className="text-xs">
+                <div className="font-semibold">레벨: {u.level||1}</div>
+                <div className="font-semibold">HP: {u.hp||0}/{u.hpMax||0}</div>
+                <div className="font-semibold">MP: {u.mp||0}/{u.mpMax||0}</div>
+              </div>
+              <div className="space-y-1 text-xs mt-2">
+                <div>공격력: <span className="font-semibold">{u.combatStats?.attack||0}</span></div>
+                <div>방어력: <span className="font-semibold">{u.combatStats?.defense||0}</span></div>
+                <div>마법공격: <span className="font-semibold">{u.combatStats?.magicAttack||0}</span></div>
+                <div className="grid grid-cols-2">
+                  <span>STR: <span className="font-semibold">{stats.STR||0}</span></span>
+                  <span className="text-left">AGI: <span className="font-semibold">{stats.AGI||0}</span></span>
+                </div>
+                <div className="grid grid-cols-2">
+                  <span>VIT: <span className="font-semibold">{stats.VIT||0}</span></span>
+                  <span className="text-left">INT: <span className="font-semibold">{stats.INT||0}</span></span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="border rounded-lg p-2">
+          <div className="border rounded-lg p-2 h-56 flex flex-col">
             <div className="font-medium text-slate-700 mb-1">스킬(재능) · 수련치</div>
-            <div className="max-h-56 overflow-auto pr-1 space-y-1">
+            <div className="flex-1 overflow-auto pr-1 space-y-1">
               {skillEntries.map(([k,v])=> {
                 const p = practice[k] ?? 0;
                 return (
@@ -57,9 +61,9 @@ export default function Inspector(){
               {skillEntries.length===0 && <div className="text-xs text-slate-400">스킬 없음</div>}
             </div>
           </div>
-          <div className="border rounded-lg p-2">
+          <div className="border rounded-lg p-2 h-56 flex flex-col">
             <div className="font-medium text-slate-700 mb-1">인벤토리</div>
-            <div className="max-h-56 overflow-auto pr-1 space-y-1">
+            <div className="flex-1 overflow-auto pr-1 space-y-1">
               {invEntries.map(([k,c])=> (
                 <div key={k} className="flex items-center justify-between">
                   <span>{k}</span>
