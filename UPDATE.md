@@ -1,3 +1,50 @@
+## 2025-01-27 - 건물 철거 후 라벨 정리 문제 수정
+
+### 🔧 변경 파일
+1. `src/components/managers/LabelManager.js`
+   - 건물 삭제 시 해당 건물의 worker 라벨들이 제대로 정리되지 않는 문제 수정
+   - `updateConstructionLabels` 메서드에 삭제된 건물의 worker 라벨 정리 로직 추가
+   - 건물이 삭제된 경우 해당 건물의 모든 worker 라벨을 자동으로 제거하도록 개선
+
+### 🐛 수정된 문제
+- 건물 철거 후 건물 상단에 있던 이름 박스(라벨)들이 사라지지 않던 문제 해결
+- 메모리 누수 방지: 삭제된 건물의 라벨 리소스가 제대로 해제되도록 개선
+
+---
+
+## 2025-09-11 - 시작 렉 급증 원인 최적화
+
+### 🔧 변경 파일
+1. `src/components/Scene3D.jsx`
+   - 프레임 루프에서 `labelManager.updateConstructionLabels` 호출 제거 → 구독 콜백에서만 호출
+   - 구독 콜백에 라벨 갱신 추가, 건물/범위/선택 링 업데이트와 동기화
+
+2. `src/components/managers/InteractionHandler.js`
+   - 이벤트 리스너 바인딩을 인스턴스 필드로 고정(`this._onMove` 등)하여 dispose 시 정확히 해제되도록 수정
+
+3. `src/components/agents/Agents.jsx`
+   - 인스턴스 색상 업데이트 캐싱: 최초 할당 시에만 색상 버퍼 갱신, 매 프레임 갱신 제거
+
+4. `src/components/managers/LabelManager.js`
+   - 숨김 시민 스캔 최적화: O(B*U) → O(B+U) (유닛 1회 순회로 빌딩별 그룹화)
+   - 불필요한 라벨 정리 로직 개선
+
+5. `src/components/managers/TownRangeManager.js`
+   - 반경 변경시에만 지오메트리 재생성(캐시된 `_radius` 비교)
+
+6. `src/game/gameLoop.js`
+   - 고정 틱 루프 내 `notify()` 배치: 틱 누적 처리 후 1회만 알림
+
+7. `src/game/state.js`
+   - `notify()` coalescing 도입: 같은 프레임 내 다중 호출을 1회로 병합(queueMicrotask)
+
+8. `src/game/systems/production.js`
+   - 디버그 로그 가드(`window.__INSU_DEBUG_LOG__`) 추가로 콘솔 스팸 감소
+
+### 🎯 효과
+- 시작 시 및 초기 플레이에서의 프레임 드랍 감소
+- 상태 변경/구독 기반 렌더 경량화, 라벨/범위/색상 업데이트 비용 감소
+- 이벤트 리스너 누수 방지로 장시간 플레이 안정성 향상
 # UPDATE.md - 프로젝트 작업 내역
 
 ## 2024년 12월 19일

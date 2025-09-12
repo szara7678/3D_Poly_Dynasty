@@ -3,6 +3,7 @@ import HUD from "./components/HUD.jsx";
 import Scene3D from "./components/Scene3D.jsx";
 import MainMenu from "./components/MainMenu.jsx";
 import Inspector from "./components/Inspector.jsx";
+import BuildCancelButton from "./components/BuildCancelButton.jsx";
 import { startGameLoop } from "./game/gameLoop";
 import { state, addUnit, uid, subscribe } from "./game/state";
 
@@ -26,6 +27,7 @@ export default function App(){
       <HUD />
       <MainMenu />
       <Inspector />
+      <BuildCancelButton />
     </div>
   );
 }

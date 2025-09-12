@@ -54,7 +54,7 @@ export class LabelManager {
     draw(text, progress);
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true });
     const sprite = new THREE.Sprite(mat);
     sprite.scale.set(3.0, 1.2, 1.0);
     this.scene.add(sprite);
@@ -67,107 +67,124 @@ export class LabelManager {
    * @param {Object} units - 유닛 상태 객체
    */
   updateConstructionLabels(buildings, units) {
-    // 완료된 라벨 제거
-    for (const [id, entry] of Array.from(this.labelMap.entries())) {
-      const b = buildings[id];
+    // 1) 건설 라벨: 존재하지 않거나 비활성화된 라벨 정리
+    for (const [key, entry] of Array.from(this.labelMap.entries())) {
+      // 건설 라벨은 key가 빌딩 id 그 자체
+      const b = buildings[key];
       if (!b || !b.construct?.active) {
-        this.scene.remove(entry.sprite);
-        entry.sprite.material.map.dispose();
-        entry.sprite.material.dispose();
-        this.labelMap.delete(id);
+        // 건설 라벨만 정리 (worker 라벨은 아래에서 별도 처리)
+        if (!key.includes('_worker_')) {
+          this.scene.remove(entry.sprite);
+          entry.sprite.material.map.dispose();
+          entry.sprite.material.dispose();
+          this.labelMap.delete(key);
+        }
       }
     }
-    
-    // 활성 건설 라벨 추가/업데이트
+
+    // 1.5) 삭제된 건물의 worker 라벨들 정리
+    for (const [key, entry] of Array.from(this.labelMap.entries())) {
+      if (key.includes('_worker_')) {
+        const buildingId = key.split('_worker_')[0];
+        const b = buildings[buildingId];
+        if (!b) {
+          // 건물이 삭제된 경우 해당 건물의 모든 worker 라벨 제거
+          this.scene.remove(entry.sprite);
+          entry.sprite.material.map.dispose();
+          entry.sprite.material.dispose();
+          this.labelMap.delete(key);
+        }
+      }
+    }
+
+    // 2) 활성 건설 라벨 갱신/추가
     for (const bid in buildings) {
       const b = buildings[bid];
       if (!b) continue;
-      
-      // 건설 중인 건물의 ETA 표시
       if (b.construct?.active) {
         const eta = Math.max(0, b.construct?.eta || 0);
         const text = `${eta.toFixed(1)}s`;
         let entry = this.labelMap.get(bid);
-        
         if (!entry) {
           entry = this.makeLabelSprite(text);
           this.labelMap.set(bid, entry);
         }
-        
         if (entry.lastText !== text) {
           entry.draw(text);
           entry.sprite.material.map.needsUpdate = true;
           entry.lastText = text;
         }
-        
         const progress = Math.max(0.1, Math.min(1, b.construct?.progress || 0));
         const baseH = 1.0;
         const height = baseH * (0.2 + 0.8 * progress);
+        // 원거리 라벨 숨김(간단 LOD)
+        const cam = this.scene?.userData?.camera || this.scene?.camera;
+        const dx = (b.tile?.x || 0) - (cam?.position?.x || 0);
+        const dz = (b.tile?.z || 0) - (cam?.position?.z || 0);
+        const d2 = dx*dx + dz*dz;
+        entry.sprite.visible = d2 < 120*120;
         entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
       }
-      // 완성된 건물의 숨겨진 시민들 표시
-      else if (!b.construct?.active) {
-        const hiddenWorkers = Object.values(units).filter(u => 
-          u.hidden && u.hiddenBuildingId === bid
-        );
-        
-        if (hiddenWorkers.length > 0) {
-          // 기존 라벨들 제거
-          for (let i = 0; i < 10; i++) { // 최대 10개까지 지원
-            const labelKey = `${bid}_worker_${i}`;
-            const entry = this.labelMap.get(labelKey);
-            if (entry) {
-              this.scene.remove(entry.sprite);
-              this.labelMap.delete(labelKey);
-            }
-          }
-          
-          // 각 시민별로 개별 라벨 생성
-          hiddenWorkers.forEach((worker, index) => {
-            const labelKey = `${bid}_worker_${index}`;
-            const text = worker.name;
-            
-            // 각 시민의 개별 생산 진행률 계산
-            let workerProgress = 0;
-            if (worker.production) {
-              for (const resourceKey in worker.production) {
-                const prodState = worker.production[resourceKey];
-                if (prodState && prodState.progress > workerProgress) {
-                  workerProgress = prodState.progress;
-                }
-              }
-            }
-            
-            let entry = this.labelMap.get(labelKey);
-            
-            if (!entry) {
-              entry = this.makeLabelSprite(text, workerProgress);
-              this.labelMap.set(labelKey, entry);
-            }
-            
-            // 텍스트나 진행률이 변경되었으면 업데이트
-            if (entry.lastText !== text || entry.lastProgress !== workerProgress) {
-              entry.draw(text, workerProgress);
-              entry.sprite.material.map.needsUpdate = true;
-              entry.lastText = text;
-              entry.lastProgress = workerProgress;
-            }
-            
-            const baseH = 1.0;
-            const height = baseH + (index * 0.5); // 세로로 배치 (간격 증가)
-            entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
-          });
-        } else {
-          // 숨겨진 시민이 없으면 모든 라벨 제거
-          for (let i = 0; i < 10; i++) {
-            const labelKey = `${bid}_worker_${i}`;
-            const entry = this.labelMap.get(labelKey);
-            if (entry) {
-              this.scene.remove(entry.sprite);
-              this.labelMap.delete(labelKey);
-            }
+    }
+
+    // 3) 유닛을 한 번만 순회하여 빌딩별 숨김 근로자 그룹화
+    const hiddenByBuilding = new Map();
+    for (const uid in units) {
+      const u = units[uid];
+      if (!u || !u.hidden || !u.hiddenBuildingId) continue;
+      const arr = hiddenByBuilding.get(u.hiddenBuildingId) || [];
+      arr.push(u);
+      hiddenByBuilding.set(u.hiddenBuildingId, arr);
+    }
+
+    // 4) 각 빌딩별 worker 라벨 생성/갱신 및 불필요한 라벨 정리
+    for (const bid in buildings) {
+      const b = buildings[bid]; if (!b || b.construct?.active) continue;
+      const hiddenWorkers = hiddenByBuilding.get(bid) || [];
+
+      // 먼저 기존 worker 라벨 중 남지 않는 인덱스 제거
+      // 최대 64명까지 안전 처리
+      for (let i = hiddenWorkers.length; i < 64; i++) {
+        const labelKey = `${bid}_worker_${i}`;
+        const entry = this.labelMap.get(labelKey);
+        if (entry) {
+          this.scene.remove(entry.sprite);
+          this.labelMap.delete(labelKey);
+        }
+      }
+
+      for (let index = 0; index < hiddenWorkers.length; index++) {
+        const worker = hiddenWorkers[index];
+        const labelKey = `${bid}_worker_${index}`;
+        const text = worker.name;
+        // 진행률 계산(해당 시민의 production 중 가장 큰 progress)
+        let workerProgress = 0;
+        const prod = worker.production;
+        if (prod) {
+          for (const k in prod) {
+            const st = prod[k];
+            if (st && st.progress > workerProgress) workerProgress = st.progress;
           }
         }
+        let entry = this.labelMap.get(labelKey);
+        if (!entry) {
+          entry = this.makeLabelSprite(text, workerProgress);
+          this.labelMap.set(labelKey, entry);
+        }
+        if (entry.lastText !== text || entry.lastProgress !== workerProgress) {
+          entry.draw(text, workerProgress);
+          entry.sprite.material.map.needsUpdate = true;
+          entry.lastText = text;
+          entry.lastProgress = workerProgress;
+        }
+        const baseH = 1.0;
+        const height = baseH + (index * 0.5);
+        const cam = this.scene?.userData?.camera || this.scene?.camera;
+        const dx = (b.tile?.x || 0) - (cam?.position?.x || 0);
+        const dz = (b.tile?.z || 0) - (cam?.position?.z || 0);
+        const d2 = dx*dx + dz*dz;
+        entry.sprite.visible = d2 < 120*120;
+        entry.sprite.position.set(b.tile?.x || 0, height + 1.2, b.tile?.z || 0);
       }
     }
   }

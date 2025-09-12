@@ -29,9 +29,14 @@ export class TownRangeManager {
       let g = this.townRangeGroups.get(hid);
       if (!g) {
         g = this.createTownRangeGroup(radius);
+        g.userData._radius = radius;
         this.townRangeGroups.set(hid, g);
       } else {
-        this.updateTownRangeGroup(g, radius);
+        // 반경이 변한 경우에만 지오메트리 재생성
+        if (g.userData._radius !== radius) {
+          this.updateTownRangeGroup(g, radius);
+          g.userData._radius = radius;
+        }
       }
       
       // 회관 위치에 그룹 배치

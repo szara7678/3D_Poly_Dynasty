@@ -92,7 +92,9 @@ export function runProduction(){
             const amount = Math.floor(prodDef.base * finalEfficiency);
             if(amount > 0) {
               setRes({ [resourceKey]: amount });
-              console.log(`${worker.name}이(가) ${resourceKey} ${amount}개 생산 완료! (효율: ${finalEfficiency.toFixed(2)}, 인구배율: ${populationMultiplier.toFixed(2)})`);
+              if (typeof window !== 'undefined' && window.__INSU_DEBUG_LOG__) {
+                console.log(`${worker.name}이(가) ${resourceKey} ${amount}개 생산 완료! (효율: ${finalEfficiency.toFixed(2)}, 인구배율: ${populationMultiplier.toFixed(2)})`);
+              }
               
               // 생산으로 인한 수련치 상승 처리
               handleProductionPractice(worker, skillKey);
@@ -123,7 +125,9 @@ export function runProduction(){
           
           // 수련 완료 체크
           if(trainState.progress >= 1.0) {
-            console.log(`${worker.name}이(가) ${trainSkillKey} 수련 완료!`);
+            if (typeof window !== 'undefined' && window.__INSU_DEBUG_LOG__) {
+              console.log(`${worker.name}이(가) ${trainSkillKey} 수련 완료!`);
+            }
             
             // 수련으로 인한 수련치 상승 처리
             handleProductionPractice(worker, trainSkillKey);

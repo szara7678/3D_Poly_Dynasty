@@ -29,6 +29,13 @@ export class InteractionHandler {
     this.pointer = new THREE.Vector2();
     this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     
+    // 고정 바인딩(등록/해제 시 동일 참조 유지)
+    this._onMove = this.onMove.bind(this);
+    this._onClick = this.onClick.bind(this);
+    this._onPick = this.onPick.bind(this);
+    this._preventCtx = this.preventCtx.bind(this);
+    this._onMouseUp = this.onMouseUp.bind(this);
+    
     this.setupEventListeners();
   }
 
@@ -63,11 +70,11 @@ export class InteractionHandler {
    * 이벤트 리스너 설정
    */
   setupEventListeners() {
-    this.renderer.domElement.addEventListener('mousemove', this.onMove.bind(this));
-    this.renderer.domElement.addEventListener('click', this.onClick.bind(this));
-    this.renderer.domElement.addEventListener('dblclick', this.onPick.bind(this));
-    this.renderer.domElement.addEventListener('contextmenu', this.preventCtx.bind(this));
-    this.renderer.domElement.addEventListener('mouseup', this.onMouseUp.bind(this));
+    this.renderer.domElement.addEventListener('mousemove', this._onMove);
+    this.renderer.domElement.addEventListener('click', this._onClick);
+    this.renderer.domElement.addEventListener('dblclick', this._onPick);
+    this.renderer.domElement.addEventListener('contextmenu', this._preventCtx);
+    this.renderer.domElement.addEventListener('mouseup', this._onMouseUp);
   }
 
   /**
@@ -384,6 +391,8 @@ export class InteractionHandler {
    */
   onRightClick(e) {
     if (this.state.ui.placing) return;
+    // 모달 열림 등 UI 상호작용 시 우클릭 이동 방지: 인스펙터 철거 모달이 열려 있으면 무시
+    if (typeof window !== 'undefined' && window.__INSU_UI_MODAL_OPEN__) return;
     const hit = this.getGroundIntersection(e);
     const selU = this.state.ui.selectedUnitId; 
     if (!selU) return;
@@ -401,10 +410,10 @@ export class InteractionHandler {
    * 이벤트 리스너 제거
    */
   dispose() {
-    this.renderer.domElement.removeEventListener('mousemove', this.onMove);
-    this.renderer.domElement.removeEventListener('click', this.onClick);
-    this.renderer.domElement.removeEventListener('dblclick', this.onPick);
-    this.renderer.domElement.removeEventListener('contextmenu', this.preventCtx);
-    this.renderer.domElement.removeEventListener('mouseup', this.onMouseUp);
+    this.renderer.domElement.removeEventListener('mousemove', this._onMove);
+    this.renderer.domElement.removeEventListener('click', this._onClick);
+    this.renderer.domElement.removeEventListener('dblclick', this._onPick);
+    this.renderer.domElement.removeEventListener('contextmenu', this._preventCtx);
+    this.renderer.domElement.removeEventListener('mouseup', this._onMouseUp);
   }
 }

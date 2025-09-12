@@ -68,12 +68,13 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
       for(const k in parts){ parts[k].setColorAt(instanceIndex, color); }
     }
     
-    // 초기 색상 설정 (모든 슬롯을 기본 색상으로)
+    // 초기 색상 설정 및 캐싱(매 프레임 갱신 방지)
     const defaultColor = new THREE.Color('#6b705c');
-    for(let i=0;i<maxCount;i++){ 
-      for(const k in parts){ parts[k].setColorAt(i, defaultColor); } 
+    const coloredIndex = new Set();
+    for(let i=0;i<maxCount;i++){
+      for(const k in parts){ parts[k].setColorAt(i, defaultColor); }
     }
-    for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate=true; }
+    for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate = true; }
 
     // animate loop bound to renderer loop from parent
     const tmpMat = new THREE.Matrix4(); const tmpQ = new THREE.Quaternion();
@@ -146,6 +147,7 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
     }
 
     function onFrame(){
+      const aStart = performance.now();
       const now = performance.now()*0.001;
       const dtRender = Math.max(0, Math.min(0.05, now - lastRenderT));
       const t = now;
@@ -209,7 +211,12 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
 
           // 시민별 외형 정보 활용 (units.js의 appearance 정보)
           const appearance = u.appearance || null;
-          assignAppearanceToCitizen(id, i, appearance);
+          // 색상은 최초 배치 시에만 설정하여 프레임당 컬러 버퍼 갱신 방지
+          if(!coloredIndex.has(i)){
+            assignAppearanceToCitizen(id, i, appearance);
+            coloredIndex.add(i);
+            for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate = true; }
+          }
           
           place(parts.body,i,bodyPos,bodyTilt,new THREE.Vector3(1,1,1).multiplyScalar(size));
           const headPos = bodyPos.clone().add(new THREE.Vector3(0,1.05*size,0));
@@ -272,9 +279,13 @@ export function Agents({ threeRef, units, count = 260, maxCount = 800 }){
       // 내부 배회자는 비활성화(테스트용 비주얼 제거)
       // 사용 개수만 렌더(잔상/깜빡임 방지)
       for(const k in parts){ parts[k].count = usedCount; parts[k].instanceMatrix.needsUpdate = true; }
-      // 색상 업데이트
-      for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate=true; }
+      // 색상 업데이트는 필요한 경우에만 위에서 수행
       lastRenderT = now;
+      // 계측 기록(HUD에서 읽음)
+      if (typeof window !== 'undefined'){
+        window.__INSU_METRICS = window.__INSU_METRICS || {};
+        window.__INSU_METRICS.agentsMs = Math.max(0, performance.now() - aStart);
+      }
     }
 
     // hook into parent's loop

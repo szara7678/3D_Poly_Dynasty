@@ -16,7 +16,19 @@ export const state = initialState();
 // 간단 이벤트 버스 (외부 스토어 구독)
 const listeners = new Set();
 export function subscribe(listener){ listeners.add(listener); return () => listeners.delete(listener); }
-export function notify(){ for(const l of Array.from(listeners)){ try{ l(state); }catch(e){ /* noop */ } } }
+// 알림 배치(coalescing) — 같은 틱/프레임 내 다중 호출을 1회로 합침
+let _notifyScheduled = false;
+export function notify(){
+  if(_notifyScheduled){ return; }
+  _notifyScheduled = true;
+  // 마이크로태스크로 지연하여 동시 알림을 병합
+  queueMicrotask(()=>{
+    _notifyScheduled = false;
+    for(const l of Array.from(listeners)){
+      try{ l(state); }catch(e){ /* noop */ }
+    }
+  });
+}
 
 export function save(){
   try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ console.warn("save fail", e); }
@@ -38,9 +50,46 @@ export function addUnit(u){
   notify(); 
 }
 export function addBuilding(b){ state.buildings[b.id]=b; notify(); }
+export function removeBuilding(buildingId){ 
+  console.log('removeBuilding 호출됨:', buildingId);
+  const building = state.buildings[buildingId];
+  console.log('찾은 건물:', building);
+  if (!building) {
+    console.log('건물을 찾을 수 없음');
+    return;
+  }
+  
+  // 배치된 시민들을 해제하고 밖으로 내보내기
+  if (building.workers) {
+    console.log('배치된 시민들 해제:', building.workers);
+    for (const unitId of building.workers) {
+      const unit = state.units[unitId];
+      if (unit) {
+        unit.hidden = false; // 시민을 다시 보이게 함
+        unit.assignedBuilding = null;
+        console.log('시민 해제됨:', unitId);
+      }
+    }
+  }
+  
+  // 건물 제거
+  console.log('건물 제거 전 buildings:', Object.keys(state.buildings));
+  delete state.buildings[buildingId];
+  console.log('건물 제거 후 buildings:', Object.keys(state.buildings));
+  
+  // 선택된 건물이 철거된 건물이면 선택 해제
+  if (state.ui.selectedBuildingId === buildingId) {
+    state.ui.selectedBuildingId = null;
+    console.log('선택된 건물 해제됨');
+  }
+  
+  console.log('notify 호출');
+  notify(); 
+}
 
 // UI 상태
 export function setPlacing(type){ state.ui.placing = type; notify(); }
+export function cancelPlacing(){ state.ui.placing = null; notify(); }
 export function setSelectedBuilding(id){ state.ui.selectedBuildingId = id; if(id){ state.ui.selectedUnitId = null; } notify(); }
 export function setSelectedUnit(id){ state.ui.selectedUnitId = id; if(id){ state.ui.selectedBuildingId = null; } notify(); }
 

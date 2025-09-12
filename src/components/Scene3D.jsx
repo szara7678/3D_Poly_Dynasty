@@ -41,9 +41,17 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
 
     // 기본 씬 세팅
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // 하드웨어 가속 감지 및 저사양 모드 전환
+    let isSoftware = false;
+    try{
+      const gl = renderer.getContext();
+      const dbg = gl && gl.getExtension && gl.getExtension('WEBGL_debug_renderer_info');
+      const rstr = gl ? (dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) : '';
+      isSoftware = /swiftshader|software|llvmpipe/i.test(String(rstr||''));
+    }catch(e){ /* noop */ }
+    const dprCap = isSoftware ? 0.5 : Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(dprCap);
+    renderer.shadowMap.enabled = false; // 시작 렉 완화: 그림자 비활성화
     renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     const scene = new THREE.Scene();
@@ -51,6 +59,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
 
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
     camera.position.set(10, 12, 10);
+    scene.userData.camera = camera;
 
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
@@ -61,16 +70,9 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     controls.maxPolarAngle = Math.PI * 0.48;
 
     // 조명
-    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
     dir.position.set(50, 60, 30);
-    dir.castShadow = true;
-    dir.shadow.mapSize.setScalar(2048);
-    dir.shadow.camera.near = 1;
-    dir.shadow.camera.far = 200;
-    dir.shadow.camera.left = -80;
-    dir.shadow.camera.right = 80;
-    dir.shadow.camera.top = 80;
-    dir.shadow.camera.bottom = -80;
+    dir.castShadow = false;
     scene.add(dir);
     
     const amb = new THREE.AmbientLight(0xffffff, 0.40);
@@ -79,7 +81,8 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     // 지형 + 배경 오브젝트
     const terrainMesh = terrain.buildTerrainMesh(300, 250);
     scene.add(terrainMesh);
-    const scatterGroup = terrain.scatterObjects(scene, 1200);
+    const scatterCount = isSoftware ? 300 : 1200;
+    const scatterGroup = terrain.scatterObjects(scene, scatterCount);
 
     // 매니저들 초기화
     const buildingManager = new BuildingManager(scene);
@@ -117,10 +120,18 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       buildingManager,
       labelManager,
       townRangeManager,
-      selectionRingManager
+      selectionRingManager,
+      isSoftware
     };
 
+    const targetFps = isSoftware ? 20 : 60;
+    let lastFrameT = performance.now();
     const loop = () => {
+      const tStart = performance.now();
+      const elapsed = tStart - lastFrameT;
+      const minFrameMs = 1000/targetFps;
+      if (elapsed < minFrameMs){ requestAnimationFrame(loop); return; }
+      lastFrameT = tStart;
       const dt = Math.min(0.033, clock.getDelta()) * Math.max(0.0001, timeScale);
       
       // 카메라 선택 포커스 보간
@@ -146,9 +157,17 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       }
       
       updateKeyboardOrbit(controls, camera, keysRef.current, dt, { move: 32, rotate: 5.0, climb: 32 });
-      labelManager.updateConstructionLabels(state.buildings, state.units);
       controls.update();
+      const rStart = performance.now();
       renderer.render(scene, camera);
+      const rEnd = performance.now();
+      // 간단 계측 노출(HUD에서 읽음)
+      if (typeof window !== 'undefined') {
+        window.__INSU_METRICS = window.__INSU_METRICS || {};
+        window.__INSU_METRICS.renderMs = rEnd - rStart;
+        window.__INSU_METRICS.isSoftware = isSoftware;
+        window.__INSU_METRICS.dpr = dprCap;
+      }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -168,7 +187,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     const three = threeRef.current;
     if (!three) return;
     
-    const { renderer, scene, camera, townRangeManager, selectionRingManager } = three;
+    const { renderer, scene, camera, townRangeManager, selectionRingManager, labelManager } = three;
     
     // 상호작용 핸들러 초기화
     const interactionHandler = new InteractionHandler(renderer, camera, scene, threeRef, state);
@@ -205,6 +224,9 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
 
       // 건물 갱신
       threeRef.current?.refreshBuildings?.();
+
+      // 라벨 갱신(건설 ETA/숨김 시민 생산 진행)
+      labelManager?.updateConstructionLabels?.(state.buildings, state.units);
 
       // 선택 링 업데이트
       selectionRingManager.updateSelectionRing(
