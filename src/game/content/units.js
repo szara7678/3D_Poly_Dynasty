@@ -53,8 +53,8 @@ export function rollStats(){
 export function rollTalent(){
   const talent = {};
   for(const k of SKILL_KEYS){
-    // 시작 재능: 0~10 범위의 소량 랜덤
-    talent[k] = Math.max(0, Math.min(10, randInt(0, 6)));
+    // 시작 재능: 1~10 범위, 모든 스킬 최소 1 보장
+    talent[k] = Math.max(1, Math.min(10, randInt(1, 6)));
   }
   return talent;
 }

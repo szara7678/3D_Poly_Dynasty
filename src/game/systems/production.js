@@ -96,6 +96,16 @@ export function runProduction(){
                 console.log(`${worker.name}이(가) ${resourceKey} ${amount}개 생산 완료! (효율: ${finalEfficiency.toFixed(2)}, 인구배율: ${populationMultiplier.toFixed(2)})`);
               }
               
+              // 자원 표시 생성 (건물 위에 올라가면서 사라지는 애니메이션)
+              if (typeof window !== 'undefined' && window.__INSU_THREE_REF__?.resourceDisplayManager) {
+                const buildingPosition = {
+                  x: b.tile?.x || 0,
+                  y: b.tile?.y || 0,
+                  z: b.tile?.z || 0
+                };
+                window.__INSU_THREE_REF__.resourceDisplayManager.createResourceDisplay(resourceKey, amount, buildingPosition);
+              }
+              
               // 생산으로 인한 수련치 상승 처리
               handleProductionPractice(worker, skillKey);
               

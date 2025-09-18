@@ -113,7 +113,7 @@ export class InteractionHandler {
       
       let insideAny = false;
       for (const h of halls) {
-        const r = (30 + 10 * ((h.level || 1) - 1));
+        const r = (24 + 8 * ((h.level || 1) - 1));
         const cx = h.tile?.x || 0;
         const cz = h.tile?.z || 0;
         const d = Math.hypot(hit.x - cx, hit.z - cz);
@@ -249,7 +249,7 @@ export class InteractionHandler {
       
       let insideAny = false;
       for (const h of halls) {
-        const r = (30 + 10 * ((h.level || 1) - 1));
+        const r = (24 + 8 * ((h.level || 1) - 1));
         const cx = h.tile?.x || 0;
         const cz = h.tile?.z || 0;
         const d = Math.hypot(hit.x - cx, hit.z - cz);

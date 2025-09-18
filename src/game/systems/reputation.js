@@ -10,8 +10,8 @@ export function runReputation(){
   const headroom = Math.max(0, 1 - (state.res.reputation / REP_SOFT_CAP)); // 상한 대비 여지
   const scaled = gain * headroom;
 
-  const maxGainPerTick = 0.1;
-  state.res.reputation += Math.min(maxGainPerTick, scaled);
+  const maxGainPerTick = 0.05; // 틱당 명성 최대 증가 하향
+  state.res.reputation += Math.min(maxGainPerTick, scaled * 0.7); // 전반 스케일 0.7배
 }
 
 /**
@@ -62,6 +62,6 @@ function calculateReputationComposite(){
     exp * 0.15 +
     popBalance * 0.15;
 
-  // 최종 스케일(틱당 0~0.2 근처 → runReputation에서 max 0.1로 캡)
-  return composite * 0.2;
+  // 최종 스케일(틱당 0~0.14 근처 → runReputation에서 max 0.05로 캡)
+  return composite * 0.14;
 }

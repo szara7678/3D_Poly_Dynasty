@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { state, subscribe, setPlacing, canAfford, setSelectedBuilding, setSelectedUnit } from "../game/state";
 import { BUILDING_DEFS } from "../game/content/buildings";
+import WarehouseTab from "./WarehouseTab";
+import CraftingTab from "./CraftingTab";
 
 export default function MainMenu() {
   const [, force] = React.useReducer(x => x + 1, 0);
@@ -33,6 +35,8 @@ export default function MainMenu() {
     { id: 'build', name: '건축', icon: '🏗️' },
     { id: 'buildings', name: '건물', icon: '🏠' },
     { id: 'citizens', name: '시민', icon: '👥' },
+    { id: 'warehouse', name: '창고', icon: '📦' },
+    { id: 'crafting', name: '제작', icon: '🔨' },
     { id: 'diplomacy', name: '외교', icon: '🤝' }
   ];
 
@@ -115,22 +119,35 @@ export default function MainMenu() {
 
   const renderCitizensTab = () => (
     <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
-      {Object.values(state.units).map((unit) => (
-        <button
-          key={unit.id}
-          onClick={() => handleCitizenClick(unit.id)}
-          className="w-full flex items-center justify-between border rounded-lg px-2 py-1 text-sm bg-green-50 hover:bg-green-100 border-green-300"
-        >
-          <span>{unit.name}</span>
-          <span className="text-[11px] text-slate-600">
-            Lv.{unit.level || 1} · HP {unit.hp || 0}/{unit.hpMax || 0}
-          </span>
-        </button>
-      ))}
+      {Object.values(state.units).map((unit) => {
+        const bid = unit.assignedBuildingId;
+        const b = bid ? state.buildings[bid] : null;
+        const job = b ? (BUILDING_DEFS[b.type]?.name || b.type) : "유휴";
+        return (
+          <button
+            key={unit.id}
+            onClick={() => handleCitizenClick(unit.id)}
+            className="w-full flex items-center justify-between border rounded-lg px-2 py-1 text-sm bg-green-50 hover:bg-green-100 border-green-300"
+          >
+            <span>{unit.name}</span>
+            <span className="text-[11px] text-slate-600">
+              {job} · HP {unit.hp || 0}/{unit.hpMax || 0}
+            </span>
+          </button>
+        );
+      })}
       {Object.values(state.units).length === 0 && (
         <div className="text-sm text-slate-400 text-center py-4">시민이 없습니다</div>
       )}
     </div>
+  );
+
+  const renderWarehouseTab = () => (
+    <WarehouseTab />
+  );
+
+  const renderCraftingTab = () => (
+    <CraftingTab />
   );
 
   const renderDiplomacyTab = () => (
@@ -147,6 +164,10 @@ export default function MainMenu() {
         return renderBuildingsTab();
       case 'citizens':
         return renderCitizensTab();
+      case 'warehouse':
+        return renderWarehouseTab();
+      case 'crafting':
+        return renderCraftingTab();
       case 'diplomacy':
         return renderDiplomacyTab();
       default:

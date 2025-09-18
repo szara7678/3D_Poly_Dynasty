@@ -1,15 +1,58 @@
+import { initializeWarehouse } from './systems/warehouse.js';
+
 const LS_KEY = "insu-save-v1";
 
-export const initialState = () => ({
-  tick: 0,
-  res: { food: 200, gold: 300, ore: 50, herb: 40, wood: 200, reputation: 0 },
-  population: 0,
-  units: {},
-  buildings: {},
-  sim: { timeScale: 1, paused: false },
-  world: { seed: 12345 },
-  ui: { placing: null, selectedBuildingId: null, selectedUnitId: null }, // placing: BuildingType|null
-});
+export const initialState = () => {
+  const warehouse = initializeWarehouse();
+  
+  // 초기 아이템 추가
+  warehouse.items = {
+    'food_box': 2,
+    'wood_box': 1
+  };
+  
+  // 초기 장비 아이템 추가 (개별 아이템으로)
+  const initialSword = {
+    id: 'initial_sword_1',
+    baseItemId: 'sword',
+    name: '검',
+    type: 'equipment',
+    slot: 'weapon',
+    description: '기본적인 검입니다.',
+    baseStats: { attack: 8 },
+    quality: 'normal',
+    craftingCost: { ore: 20, wood: 5, gold: 30 },
+    requiredSkill: 'Smithing'
+  };
+  
+  const initialArmor = {
+    id: 'initial_armor_1',
+    baseItemId: 'armor',
+    name: '갑옷',
+    type: 'equipment',
+    slot: 'armor',
+    description: '몸을 보호하는 갑옷입니다.',
+    baseStats: { defense: 8, health: 40 },
+    quality: 'normal',
+    craftingCost: { ore: 25, wood: 10, gold: 50 },
+    requiredSkill: 'Smithing'
+  };
+  
+  warehouse.equipment[initialSword.id] = initialSword;
+  warehouse.equipment[initialArmor.id] = initialArmor;
+  
+  return {
+    tick: 0,
+    res: { food: 200, gold: 300, ore: 50, herb: 40, wood: 200, reputation: 0 },
+    population: 0,
+    units: {},
+    buildings: {},
+    warehouse: warehouse,
+    sim: { timeScale: 1, paused: false },
+    world: { seed: 12345 },
+    ui: { placing: null, selectedBuildingId: null, selectedUnitId: null, selectedItemId: null }, // placing: BuildingType|null
+  };
+};
 
 export const state = initialState();
 
@@ -199,6 +242,20 @@ export function setBuildingName(buildingId, newName){
   b.name = newName.trim() || b.name; // 빈 문자열이면 기존 이름 유지
   notify();
   return true;
+}
+
+// 창고 관련 액션들
+export function setSelectedItem(itemId){ 
+  state.ui.selectedItemId = itemId; 
+  if(itemId){ state.ui.selectedBuildingId = null; state.ui.selectedUnitId = null; } 
+  notify(); 
+}
+
+export function clearSelection(){ 
+  state.ui.selectedBuildingId = null; 
+  state.ui.selectedUnitId = null; 
+  state.ui.selectedItemId = null; 
+  notify(); 
 }
 
 

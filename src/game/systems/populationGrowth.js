@@ -39,22 +39,22 @@ export function runPopulationGrowth() {
   
   // 총 인구 증가 확률 (각 요소의 가중 평균)
   const totalChance = (
-    baseChance * 0.2 +           // 기본 확률 20%
-    reputationChance * 0.3 +     // 명성 기반 30%
-    buildingChance * 0.2 +       // 건물 기반 20%
-    citizenChance * 0.15 +       // 시민 기반 15%
-    resourceChance * 0.15        // 자원 기반 15%
-  );
+    baseChance * 0.18 +          // 기본 확률 18%
+    reputationChance * 0.26 +    // 명성 기반 26%
+    buildingChance * 0.18 +      // 건물 기반 18%
+    citizenChance * 0.14 +       // 시민 기반 14%
+    resourceChance * 0.14        // 자원 기반 14%
+  ) * 0.8; // 전반 스케일 하향
   
   // 인구 증가 난이도 적용 (최대값 기반)
   const populationDifficultyMultiplier = calculatePopulationDifficulty(maxPossiblePopulation);
   const scaledChance = totalChance * populationDifficultyMultiplier;
   
   // 상한 근접 페널티(안전망): 상한 90% 이상이면 자동 하향
-  const nearCapPenalty = state.population / maxPossiblePopulation >= 0.9 ? 0.5 : 1.0;
+  const nearCapPenalty = state.population / maxPossiblePopulation >= 0.9 ? 0.4 : 1.0;
   
   // 최종 상한 5% 유지, 하드캡 가드
-  const finalChance = Math.min(0.05, scaledChance * nearCapPenalty);
+  const finalChance = Math.min(0.035, scaledChance * nearCapPenalty);
   if (state.population >= maxPossiblePopulation) return; // 재가드
   if (state.population >= HARD_POP_CAP) return;          // 절대 하드캡
   
@@ -71,10 +71,10 @@ function calculateBasePopulationChance() {
   const currentPopulation = state.population;
   
   // 인구가 적을수록 높은 확률, 많을수록 낮은 확률
-  if (currentPopulation === 0) return 0.1; // 첫 시민은 높은 확률
-  if (currentPopulation < 5) return 0.05;  // 초기 인구는 중간 확률
-  if (currentPopulation < 10) return 0.03; // 중간 인구는 낮은 확률
-  return 0.01; // 많은 인구는 매우 낮은 확률
+  if (currentPopulation === 0) return 0.08; // 첫 시민 확률 소폭 하향
+  if (currentPopulation < 5) return 0.04;  // 초기 인구 중간 확률 하향
+  if (currentPopulation < 10) return 0.025; // 중간 인구 낮은 확률 하향
+  return 0.008; // 많은 인구 매우 낮은 확률
 }
 
 /**
@@ -84,24 +84,24 @@ function calculateReputationBasedChance() {
   const currentReputation = state.res.reputation;
   const currentPopulation = state.population;
   
-  if (currentPopulation === 0) return 0.1; // 첫 시민은 높은 확률
+  if (currentPopulation === 0) return 0.08; // 첫 시민 확률 소폭 하향
   
   // 명성 대비 인구 비율 계산
   const reputationPerCitizen = currentReputation / currentPopulation;
   
   // 이상적인 비율 (시민 1명당 명성 3-5가 적절)
-  const idealRatio = 4.0;
+  const idealRatio = 4.2; // 약간 더 빡빡하게
   
   if (reputationPerCitizen < idealRatio) {
     // 명성이 부족한 경우 낮은 확률
     const deficit = idealRatio - reputationPerCitizen;
-    return Math.max(0.001, 0.02 - deficit * 0.005);
+    return Math.max(0.001, 0.018 - deficit * 0.0045);
   } else if (reputationPerCitizen < idealRatio * 1.5) {
     // 적절한 비율일 때 중간 확률
-    return 0.03;
+    return 0.024;
   } else {
     // 명성이 충분한 경우 높은 확률
-    return 0.05;
+    return 0.038;
   }
 }
 
@@ -116,10 +116,10 @@ function calculateBuildingBasedChance() {
   const diversityScore = buildingTypes.size;
   
   // 건물 다양성이 높을수록 인구 증가 확률 증가
-  if (diversityScore >= 6) return 0.04;      // 매우 다양한 마을
-  if (diversityScore >= 4) return 0.03;      // 다양한 마을
-  if (diversityScore >= 2) return 0.02;     // 보통 마을
-  return 0.01; // 단조로운 마을
+  if (diversityScore >= 6) return 0.032;     // 매우 다양한 마을
+  if (diversityScore >= 4) return 0.024;     // 다양한 마을
+  if (diversityScore >= 2) return 0.016;     // 보통 마을
+  return 0.008; // 단조로운 마을
 }
 
 /**
@@ -127,7 +127,7 @@ function calculateBuildingBasedChance() {
  */
 function calculateCitizenBasedChance() {
   const citizens = Object.values(state.units);
-  if (citizens.length === 0) return 0.05; // 첫 시민은 높은 확률
+  if (citizens.length === 0) return 0.04; // 첫 시민 확률 소폭 하향
   
   let totalPractice = 0;
   let expertCount = 0;
@@ -152,12 +152,12 @@ function calculateCitizenBasedChance() {
   const expertRatio = expertCount / citizens.length;
   
   // 평균 수련치와 전문가 비율에 따른 확률
-  let chance = 0.01; // 기본 확률
+  let chance = 0.008; // 기본 확률 하향
   
-  if (averagePractice >= 30) chance += 0.02; // 높은 평균 수련치
-  if (expertRatio >= 0.3) chance += 0.02;    // 많은 전문가
+  if (averagePractice >= 30) chance += 0.016; // 높은 평균 수련치
+  if (expertRatio >= 0.3) chance += 0.016;    // 많은 전문가
   
-  return Math.min(0.05, chance);
+  return Math.min(0.038, chance);
 }
 
 /**
@@ -185,10 +185,10 @@ function calculateResourceBasedChance() {
   }
   
   // 자원 점수에 따른 확률
-  if (resourceScore >= 4) return 0.04;      // 자원이 매우 풍부
-  if (resourceScore >= 3) return 0.03;      // 자원이 풍부
-  if (resourceScore >= 2) return 0.02;      // 자원이 보통
-  return 0.01; // 자원이 부족
+  if (resourceScore >= 4) return 0.032;     // 자원이 매우 풍부
+  if (resourceScore >= 3) return 0.024;     // 자원이 풍부
+  if (resourceScore >= 2) return 0.016;     // 자원이 보통
+  return 0.008; // 자원이 부족
 }
 
 /**
@@ -200,7 +200,7 @@ function calculateMaxPossiblePopulation() {
   const res = state.res;
 
   // 1) 주거 수용력(직관적 병목)
-  const totalHousing = buildings.reduce((sum, b) => sum + (b.capacity || 0), 0); // 숙소/주택류 capacity 합
+  const totalHousing = buildings.reduce((sum, b) => sum + (b.capacity || 0), 0); // capacity 합
   const housingCap = Math.max(5, totalHousing); // 최소 5
 
   // 2) 식량 수용력(일일 식량 생산·비축 기반의 단순 상한)

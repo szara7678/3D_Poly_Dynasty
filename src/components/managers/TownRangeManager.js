@@ -24,7 +24,7 @@ export class TownRangeManager {
       const hid = h.id;
       seen.add(hid);
       const level = h.level || 1;
-      const radius = 30 + 10 * (level - 1);
+      const radius = 15 + 8 * (level - 1);
       
       let g = this.townRangeGroups.get(hid);
       if (!g) {
@@ -265,7 +265,7 @@ export class TownRangeManager {
     const hallInfo = halls.map(h => ({
       id: h.id,
       center: new THREE.Vector2(h.tile?.x || 0, h.tile?.z || 0),
-      radius: 30 + 10 * ((h.level || 1) - 1)
+      radius: 24 + 8 * ((h.level || 1) - 1)
     }));
 
     // 각 범위 그룹에 대해 클리핑 정보 업데이트

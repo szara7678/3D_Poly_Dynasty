@@ -13,6 +13,18 @@
     - InteractionHandler의 리스너 바인딩 고정 및 정확한 해제 보장
   - 결과:
     - 시작 렉 해소, 틱/프레임 안정성 향상, 장시간 플레이 시 누수/스파이크 완화
+ 
+## 2025-09-15
+
+- 현상: 간헐적으로 그래픽이 깨지듯 잔상이 생겼다가 돌아오는 깜빡임
+  - 원인(가능성):
+    1) 캔버스가 `alpha:true`로 문서 배경과 합성될 때 클리어 순서/중첩 레이어에 따른 아티팩트
+    2) 컴포넌트 언마운트 후에도 남아있는 `requestAnimationFrame` 중복 루프
+  - 조치:
+    - `WebGLRenderer`를 불투명(`alpha:false`)으로 전환, `setClearColor(0xeaf7ff,1)` 및 `autoClear=true` 명시
+    - 렌더 루프에 `running` 플래그와 `rafId`를 도입하여 언마운트 시 `cancelAnimationFrame`로 정리
+  - 결과:
+    - 잔상/깜빡임 현상 재현 빈도 크게 감소, 탭 전환/리마운트 이후 안정성 향상
 # TroubleShooting
 
 ## 2025-09-04

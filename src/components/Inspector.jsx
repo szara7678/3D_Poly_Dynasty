@@ -1,7 +1,13 @@
 import React, { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName, removeBuilding } from "../game/state";
+import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName, removeBuilding, setSelectedItem } from "../game/state";
 import { BUILDING_DEFS } from "../game/content/buildings";
+import { getEquipmentQualityColor } from "../game/content/items";
+import { getCitizenEquipment } from "../game/systems/warehouse";
+import { updateCitizenCombatStats } from "../game/factory/citizen";
+import ItemInspector from "./ItemInspector";
+import CraftingInspector from "./CraftingInspector";
+import { ITEM_DEFINITIONS } from "../game/content/items";
 
 export default function Inspector(){
   const [, force] = React.useReducer(x=>x+1,0);
@@ -14,6 +20,7 @@ export default function Inspector(){
   
   const selBId = state.ui.selectedBuildingId;
   const selUId = state.ui.selectedUnitId;
+  const selItemId = state.ui.selectedItemId;
   
   // 건물 선택이 바뀔 때 모달 상태 초기화
   React.useEffect(() => {
@@ -33,18 +40,21 @@ export default function Inspector(){
         if (state.ui.selectedUnitId) {
           setSelectedUnit(null);
         }
+        if (state.ui.selectedItemId) {
+          setSelectedItem(null);
+        }
       }
     };
 
-    if (selBId || selUId) {
+    if (selBId || selUId || selItemId) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [selBId, selUId, showDemolishModal]);
-  if(!selBId && !selUId) return null;
+  }, [selBId, selUId, selItemId, showDemolishModal]);
+  if(!selBId && !selUId && !selItemId) return null;
 
   const handleNameEdit = (type, id, currentName) => {
     setEditingName(type === 'unit' ? `unit_${id}` : `building_${id}`);
@@ -102,11 +112,23 @@ export default function Inspector(){
 
   if(selUId){
     const u = state.units[selUId]; if(!u) return null;
-    const stats = u.stats||{}; const talents = u.talents||{}; const practice = u.practice||{}; const inv = u.inventory||{ items:{}, equipment:{} };
+    
+    // 장비 효과를 반영한 시민 스탯 업데이트
+    const updatedCitizen = updateCitizenCombatStats(u, state.warehouse);
+    
+    const stats = updatedCitizen.stats||{}; const talents = updatedCitizen.talents||{}; const practice = updatedCitizen.practice||{}; const inv = updatedCitizen.inventory||{ items:{}, equipment:{} };
     const skillOrder = ['Sword', 'Magic', 'Admin', 'Farming', 'Woodcutting', 'Mining', 'Gathering', 'Smithing'];
     const skillEntries = skillOrder.map(skill => [skill, talents[skill] || 0]).filter(([_, value]) => value > 0);
     const invEntries = Object.entries(inv.items||{});
 
+    const jobName = (()=>{
+      const bid = u.assignedBuildingId;
+      if(!bid) return "유휴";
+      const b = state.buildings[bid];
+      if(!b) return "유휴";
+      const d = BUILDING_DEFS[b.type]||{};
+      return d.name || b.type;
+    })();
     return (
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm" ref={inspectorRef}>
         <div className="flex items-center justify-between">
@@ -138,21 +160,21 @@ export default function Inspector(){
             <div className="font-medium text-slate-700 mb-1">기본 정보</div>
             <div className="flex-1 overflow-auto space-y-1">
               <div className="text-xs">
-                <div className="font-semibold">레벨: {u.level||1}</div>
+                <div className="font-semibold">소속: {jobName}</div>
                 <div className="font-semibold">HP: {u.hp||0}/{u.hpMax||0}</div>
                 <div className="font-semibold">MP: {u.mp||0}/{u.mpMax||0}</div>
               </div>
               <div className="space-y-1 text-xs mt-2">
-                <div>공격력: <span className="font-semibold">{u.combatStats?.attack||0}</span></div>
-                <div>방어력: <span className="font-semibold">{u.combatStats?.defense||0}</span></div>
-                <div>마법공격: <span className="font-semibold">{u.combatStats?.magicAttack||0}</span></div>
+                <div>공격력: <span className="font-semibold">{updatedCitizen.combatStats?.attack||0}</span></div>
+                <div>방어력: <span className="font-semibold">{updatedCitizen.combatStats?.defense||0}</span></div>
+                <div>마법공격: <span className="font-semibold">{updatedCitizen.combatStats?.magicAttack||0}</span></div>
                 <div className="grid grid-cols-2">
-                  <span>STR: <span className="font-semibold">{stats.STR||0}</span></span>
-                  <span className="text-left">AGI: <span className="font-semibold">{stats.AGI||0}</span></span>
+                  <span>STR: <span className="font-semibold">{updatedCitizen.enhancedStats?.STR||updatedCitizen.stats.STR||0}</span></span>
+                  <span className="text-left">AGI: <span className="font-semibold">{updatedCitizen.enhancedStats?.AGI||updatedCitizen.stats.AGI||0}</span></span>
                 </div>
                 <div className="grid grid-cols-2">
-                  <span>VIT: <span className="font-semibold">{stats.VIT||0}</span></span>
-                  <span className="text-left">INT: <span className="font-semibold">{stats.INT||0}</span></span>
+                  <span>VIT: <span className="font-semibold">{updatedCitizen.enhancedStats?.VIT||updatedCitizen.stats.VIT||0}</span></span>
+                  <span className="text-left">INT: <span className="font-semibold">{updatedCitizen.enhancedStats?.INT||updatedCitizen.stats.INT||0}</span></span>
                 </div>
               </div>
             </div>
@@ -175,6 +197,69 @@ export default function Inspector(){
           <div className="border rounded-lg p-2 h-56 flex flex-col">
             <div className="font-medium text-slate-700 mb-1">인벤토리</div>
             <div className="flex-1 overflow-auto pr-1 space-y-1">
+              {/* 장착된 장비 섹션 */}
+              <div className="mb-2">
+                <div className="text-xs text-slate-500 mb-1 font-medium">장착된 장비</div>
+                {(() => {
+                  const equippedItems = getCitizenEquipment(state.warehouse, u.id);
+                  
+                  const slots = ['weapon', 'helmet', 'armor', 'boots', 'necklace', 'ring'];
+                  const slotNames = {
+                    weapon: '무기',
+                    helmet: '투구', 
+                    armor: '갑옷',
+                    boots: '신발',
+                    necklace: '목걸이',
+                    ring: '반지'
+                  };
+                  
+                  return slots.map(slot => {
+                    const uniqueItemId = equippedItems[slot];
+                    if (!uniqueItemId) {
+                      return (
+                        <div key={slot} className="flex items-center justify-between text-xs text-slate-400 px-1 py-0.5">
+                          <span>{slotNames[slot]}</span>
+                          <span>미착용</span>
+                        </div>
+                      );
+                    }
+                    
+                    const equipment = state.warehouse.equipment[uniqueItemId];
+                    if (!equipment) return null;
+                    
+                    const specialAbilitiesCount = equipment.specialAbilities ? equipment.specialAbilities.length : 0;
+                    const qualityColor = getEquipmentQualityColor(specialAbilitiesCount);
+                    
+                    return (
+                      <div 
+                        key={slot} 
+                        className="flex items-center justify-between cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5"
+                        onClick={() => setSelectedItem(uniqueItemId)}
+                      >
+                        <div className="flex flex-col">
+                          <span className={`text-xs font-medium ${qualityColor}`}>
+                            {equipment.name}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {slotNames[slot]}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          {equipment.baseStats && (
+                            <div className="text-xs text-slate-600">
+                              {Object.entries(equipment.baseStats).map(([stat, value]) => 
+                                `${stat === 'attack' ? '공격' : stat === 'defense' ? '방어' : stat === 'health' ? '체력' : stat}+${value}`
+                              ).join(' ')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              
+              {/* 기존 인벤토리 아이템 */}
               {invEntries.map(([k,c])=> (
                 <div key={k} className="flex items-center justify-between">
                   <span>{k}</span>
@@ -189,8 +274,49 @@ export default function Inspector(){
     );
   }
 
+  // 아이템 선택된 경우
+  if (selItemId) {
+    // 제작 탭에서 선택된 아이템인지 확인 (ITEM_DEFINITIONS에 있는 아이템이지만 창고에 없는 경우)
+    const isCraftingItem = ITEM_DEFINITIONS[selItemId] && 
+                          !state.warehouse.items[selItemId] && 
+                          !state.warehouse.equipment[selItemId];
+    
+    return (
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[400px]" ref={inspectorRef}>
+        {isCraftingItem ? <CraftingInspector /> : <ItemInspector />}
+      </div>
+    );
+  }
+
   const b = state.buildings[selBId]; if(!b) return null;
   const def = BUILDING_DEFS[b.type]||{};
+  const computeProductivity = (u)=>{
+    // 생산 전용 미리보기: production.js의 효율 공식을 단순화하여 표시
+    const skillKey = def.skill; if(!skillKey) return null;
+    const levelMult = 1 + 0.08*((b.level||1)-1);
+    const talent = (u.talents?.[skillKey]||0)/10;
+    const practice = Math.max(0, Math.min(500, (u.practice?.[skillKey]||0)));
+    const practiceBonus = practice * 0.04;
+    const { STR=0,AGI=0,VIT=0,INT=0 } = u.stats||{};
+    let relevantStatBonus = 0;
+    switch(skillKey){
+      case 'Farming': relevantStatBonus = VIT * 0.05; break;
+      case 'Woodcutting': relevantStatBonus = (STR + VIT) * 0.03; break;
+      case 'Gathering': relevantStatBonus = AGI * 0.05; break;
+      case 'Mining': relevantStatBonus = (STR + VIT) * 0.03; break;
+      case 'Sword': relevantStatBonus = (STR + AGI + VIT) * 0.02; break;
+      case 'Magic': relevantStatBonus = INT * 0.05; break;
+      case 'Smithing': relevantStatBonus = (STR + VIT) * 0.03; break;
+      case 'Admin': relevantStatBonus = (INT + AGI) * 0.03; break;
+      default: relevantStatBonus = 0;
+    }
+    const statBonus = (STR*0.02 + AGI*0.01 + VIT*0.02 + INT*0.03)/100;
+    const efficiency = levelMult + talent*0.4 + practiceBonus + statBonus + relevantStatBonus;
+    const resourceKey = def.produces ? Object.keys(def.produces)[0] : null;
+    const base = resourceKey ? (def.produces[resourceKey].base||1) : 1;
+    // 실제 틱당/사이클당이 아닌 상대치 미리보기. 숫자만 간단히.
+    return { eff: efficiency, res: resourceKey, base };
+  };
   const workers = (b.workers||[]).map(id=>state.units[id]).filter(Boolean);
   const cap = b.capacity||0;
   const assignable = idleUnits();
@@ -248,7 +374,10 @@ export default function Inspector(){
               {workers.map(u=> (
                 <div key={u.id} className={`flex items-center justify-between border rounded-lg px-2 py-1 ${u.hidden ? 'bg-slate-100' : ''}`}>
                   <span className={u.hidden ? 'text-slate-500' : ''}>{u.name}</span>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-2">
+                    {def.skill && (
+                      (()=>{ const p = computeProductivity(u); return p ? <span className="text-[11px] text-slate-600">{p.res?`${p.res}:`:''}{(p.base*p.eff).toFixed(1)}</span> : null; })()
+                    )}
                     {u.hidden ? (
                       <button className="text-green-600 hover:underline text-xs" onClick={()=>onExport(u.id)}>내보내기</button>
                     ) : (
@@ -267,7 +396,12 @@ export default function Inspector(){
               {assignable.slice(0,20).map(u=> (
                 <div key={u.id} className="flex items-center justify-between border rounded-lg px-2 py-1">
                   <span>{u.name}</span>
-                  <button className="text-emerald-700 hover:underline disabled:text-slate-400" disabled={(b.workers||[]).length>=cap} onClick={()=>onAssign(u.id)}>배치</button>
+                  <div className="flex items-center gap-2">
+                    {def.skill && (
+                      (()=>{ const p = computeProductivity(u); return p ? <span className="text-[11px] text-slate-600">{p.res?`${p.res}:`:''}{(p.base*p.eff).toFixed(1)}</span> : null; })()
+                    )}
+                    <button className="text-emerald-700 hover:underline disabled:text-slate-400" disabled={(b.workers||[]).length>=cap} onClick={()=>onAssign(u.id)}>배치</button>
+                  </div>
                 </div>
               ))}
               {assignable.length===0 && <div className="text-xs text-slate-400">유휴 인원이 없습니다</div>}
@@ -287,10 +421,9 @@ export default function Inspector(){
 
 // 철거 확인 모달 컴포넌트
 function DemolishModal({ isOpen, onConfirm, onCancel, buildingName }) {
-  console.log('DemolishModal 렌더링:', { isOpen, buildingName });
   
   if (!isOpen) {
-    console.log('모달이 닫혀있음, 렌더링하지 않음');
+    // console.log('모달이 닫혀있음, 렌더링하지 않음');
     return null;
   }
 

@@ -13,6 +13,7 @@ import { LabelManager } from "./managers/LabelManager.js";
 import { TownRangeManager } from "./managers/TownRangeManager.js";
 import { InteractionHandler } from "./managers/InteractionHandler.js";
 import { SelectionRingManager } from "./managers/SelectionRingManager.js";
+import { ResourceDisplayManager } from "./managers/ResourceDisplayManager.js";
 
 export default function Scene3D({ className = "", units = [], count = 260, maxCount = 800, timeScale = 1 }) {
   const containerRef = useRef();
@@ -40,7 +41,15 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     if (!container || !canvas) return;
 
     // 기본 씬 세팅
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ 
+      canvas, 
+      antialias: true, 
+      alpha: false, // 불투명 프레임버퍼로 잔상/합성 이슈 예방
+      powerPreference: 'high-performance',
+      premultipliedAlpha: false,
+      stencil: false,
+      depth: true
+    });
     // 하드웨어 가속 감지 및 저사양 모드 전환
     let isSoftware = false;
     try{
@@ -53,6 +62,8 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     renderer.setPixelRatio(dprCap);
     renderer.shadowMap.enabled = false; // 시작 렉 완화: 그림자 비활성화
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.autoClear = true;
+    renderer.setClearColor(0xeaf7ff, 1);
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xeaf7ff);
@@ -89,6 +100,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     const labelManager = new LabelManager(scene);
     const townRangeManager = new TownRangeManager(scene);
     const selectionRingManager = new SelectionRingManager(scene);
+    const resourceDisplayManager = new ResourceDisplayManager(scene);
 
 
 
@@ -121,16 +133,25 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       labelManager,
       townRangeManager,
       selectionRingManager,
+      resourceDisplayManager,
       isSoftware
     };
 
+    // 전역에서 접근 가능하도록 설정 (production.js에서 사용)
+    if (typeof window !== 'undefined') {
+      window.__INSU_THREE_REF__ = threeRef.current;
+    }
+
     const targetFps = isSoftware ? 20 : 60;
     let lastFrameT = performance.now();
+    let running = true;
+    let rafId = 0;
     const loop = () => {
+      if (!running) return;
       const tStart = performance.now();
       const elapsed = tStart - lastFrameT;
       const minFrameMs = 1000/targetFps;
-      if (elapsed < minFrameMs){ requestAnimationFrame(loop); return; }
+      if (elapsed < minFrameMs){ rafId = requestAnimationFrame(loop); return; }
       lastFrameT = tStart;
       const dt = Math.min(0.033, clock.getDelta()) * Math.max(0.0001, timeScale);
       
@@ -158,6 +179,10 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       
       updateKeyboardOrbit(controls, camera, keysRef.current, dt, { move: 32, rotate: 5.0, climb: 32 });
       controls.update();
+      
+      // 자원 표시 애니메이션 업데이트
+      resourceDisplayManager.updateDisplays();
+      
       const rStart = performance.now();
       renderer.render(scene, camera);
       const rEnd = performance.now();
@@ -168,16 +193,25 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
         window.__INSU_METRICS.isSoftware = isSoftware;
         window.__INSU_METRICS.dpr = dprCap;
       }
-      requestAnimationFrame(loop);
+      rafId = requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
 
     return () => {
       window.removeEventListener('resize', resize);
+      running = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      
+      // 전역 참조 정리
+      if (typeof window !== 'undefined') {
+        window.__INSU_THREE_REF__ = null;
+      }
+      
       buildingManager.dispose();
       labelManager.dispose();
       townRangeManager.dispose();
       selectionRingManager.dispose();
+      resourceDisplayManager.dispose();
       renderer.dispose();
     };
   }, [timeScale, terrain]);
