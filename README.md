@@ -127,8 +127,21 @@ npm run preview
 
 ### 배포 설정
 - **Vite 설정**: `base: '/3d-world/'`로 설정되어 GitHub Pages의 서브디렉토리 배포에 최적화
-- **GitHub Actions**: main 브랜치에 푸시할 때마다 자동으로 빌드 및 배포
+- **자동 배포**: main 브랜치에 푸시할 때마다 자동으로 gh-pages 브랜치에 배포
 - **배포 URL**: `https://[사용자명].github.io/3d-world/`
+
+### 자동 배포 설정
+1. **GitHub 저장소 권한 설정**:
+   - GitHub 저장소 → Settings → Actions → General
+   - "Workflow permissions" 섹션에서 "Read and write permissions" 선택
+   - "Allow GitHub Actions to create and approve pull requests" 체크
+   - Save changes
+
+2. **GitHub Pages 설정**:
+   - GitHub 저장소 → Settings → Pages
+   - Source를 "Deploy from a branch"로 설정
+   - Branch를 "gh-pages"로 선택
+   - Save 클릭
 
 ### 배포 과정
 1. 코드를 main 브랜치에 푸시
@@ -141,9 +154,13 @@ npm run preview
 # 로컬에서 빌드
 npm run build
 
-# gh-pages 브랜치에 수동 배포 (gh-pages 패키지 설치 필요)
-npx gh-pages -d dist
+# GitHub Pages에 배포
+npm run deploy
 ```
+
+### 배포 확인
+- `https://[사용자명].github.io/3d-world/`에서 사이트 접속
+- main 브랜치에 푸시하면 자동으로 배포됨
 
 ## 🔧 개발 환경
 

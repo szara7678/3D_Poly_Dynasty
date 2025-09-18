@@ -228,6 +228,41 @@
 - 이벤트 리스너 누수 방지로 장시간 플레이 안정성 향상
 # UPDATE.md - 프로젝트 작업 내역
 
+## 2025-01-27 - GitHub Pages 자동 배포 설정 완료
+
+### 🔧 변경 파일
+1. `vite.config.js`
+   - GitHub Pages 배포를 위한 base path 설정 추가 (`base: '/3d-world/'`)
+   - 빌드 설정 최적화 (outDir, assetsDir, sourcemap 설정)
+
+2. `.github/workflows/deploy.yml`
+   - main 브랜치 푸시 시 자동 빌드 및 gh-pages 배포 설정
+   - Node.js 18 환경에서 npm ci → npm run build → gh-pages 배포
+   - 권한 문제 해결을 위한 설정 최적화
+
+3. `package.json`
+   - gh-pages 패키지 의존성 추가 (v6.3.0)
+   - `npm run deploy` 스크립트 추가 (수동 배포용)
+
+4. `README.md`
+   - 자동 배포 설정 방법 안내 추가
+   - GitHub 저장소 권한 설정 방법 상세 설명
+   - 배포 URL 형식 안내 (`https://[사용자명].github.io/3d-world/`)
+
+### 🎯 기능
+- **자동 배포**: main 브랜치에 푸시할 때마다 자동으로 gh-pages 브랜치에 배포
+- **수동 배포**: `npm run deploy` 명령어로 즉시 배포 가능
+- **최적화된 빌드**: Vite 설정으로 GitHub Pages 서브디렉토리 배포에 최적화
+- **배포 URL**: `https://[사용자명].github.io/3d-world/`에서 접속 가능
+
+### 📈 효과
+- 코드 변경 시 자동으로 웹에서 확인 가능
+- GitHub Actions 권한 문제 해결 방법 안내
+- 별도의 서버 없이 GitHub에서 무료 호스팅
+- 개발 효율성 대폭 향상
+
+---
+
 ## 2024년 12월 19일
 
 ### 🚀 프로젝트 초기 설정 완료
