@@ -79,6 +79,19 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     controls.maxDistance = 50;
     controls.minPolarAngle = 0.1;
     controls.maxPolarAngle = Math.PI * 0.48;
+    
+    // 마우스 버튼 설정 변경: 왼쪽 버튼으로 팬(맵 이동), 오른쪽 버튼으로 회전
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.PAN,    // 왼쪽 버튼: 맵 이동
+      MIDDLE: THREE.MOUSE.DOLLY, // 가운데 버튼: 줌
+      RIGHT: THREE.MOUSE.ROTATE // 오른쪽 버튼: 회전
+    };
+    
+    // 모바일 터치 설정: 한 손가락으로 팬(맵 이동), 두 손가락으로 줌/회전
+    controls.touches = {
+      ONE: THREE.TOUCH.PAN,           // 한 손가락: 맵 이동
+      TWO: THREE.TOUCH.DOLLY_ROTATE   // 두 손가락: 줌 및 회전
+    };
 
     // 조명
     const dir = new THREE.DirectionalLight(0xffffff, 0.9);

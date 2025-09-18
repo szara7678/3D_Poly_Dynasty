@@ -32,7 +32,7 @@ export default function HUD(){
   const minEta = activeCons.length ? Math.max(0, Math.min(...activeCons.map(b=>b.construct?.eta||0))) : 0;
   return (
     <div className="fixed top-2 left-2 bg-black/50 text-white text-sm rounded-xl px-3 py-2 space-x-3">
-      <span>🖥️ {fps.toFixed(0)} FPS</span>
+      {/* <span>🖥️ {fps.toFixed(0)} FPS</span> */}
       {/* <span className="text-white/80">(r:{metrics.renderMs.toFixed(1)}ms a:{metrics.agentsMs.toFixed(1)}ms l:{metrics.loopMs.toFixed(1)}ms)</span> */}
       {/* {typeof window !== 'undefined' && window.__INSU_METRICS && (
         <span className="text-white/60">[{window.__INSU_METRICS.isSoftware? 'SW':'HW'} DPR:{Number(window.__INSU_METRICS.dpr||1).toFixed(2)}]</span>
