@@ -228,11 +228,31 @@
 - 이벤트 리스너 누수 방지로 장시간 플레이 안정성 향상
 # UPDATE.md - 프로젝트 작업 내역
 
-## 2025-01-27 - GitHub Pages 자동 배포 설정 완료
+## 2025-01-27 - HUD에서 건설 시간 표시 제거
+
+### 🔧 변경 파일
+1. `src/components/HUD.jsx`
+   - 건설 중인 건물들의 최소 남은 시간을 표시하는 부분 제거
+   - `activeCons` 변수 및 관련 계산 로직 삭제
+   - 건설 시간 표시 UI 요소 완전 제거
+
+### 🎯 변경 내용
+- 기존: 자원 옆에 "🏗️ 15.2s ×3" 형태로 건설 시간 표시
+- 변경: 건설 시간 표시 완전 제거로 HUD 단순화
+
+### 📈 효과
+- HUD가 더 깔끔하고 간결해짐
+- 자원 정보에 집중할 수 있는 UI 개선
+- 건설 진행 상황은 건물 위의 라벨로만 확인 가능
+
+---
+
+## 2025-01-27 - GitHub Pages 자동 배포 설정 완료 및 404 오류 해결
 
 ### 🔧 변경 파일
 1. `vite.config.js`
-   - GitHub Pages 배포를 위한 base path 설정 추가 (`base: '/3d-world/'`)
+   - GitHub Pages 배포를 위한 base path 설정 수정 (`base: '/3D_Poly_Dynasty/'`)
+   - 실제 저장소 이름에 맞게 경로 수정하여 404 오류 해결
    - 빌드 설정 최적화 (outDir, assetsDir, sourcemap 설정)
 
 2. `.github/workflows/deploy.yml`
@@ -247,17 +267,18 @@
 4. `README.md`
    - 자동 배포 설정 방법 안내 추가
    - GitHub 저장소 권한 설정 방법 상세 설명
-   - 배포 URL 형식 안내 (`https://[사용자명].github.io/3d-world/`)
+   - 실제 배포 URL로 수정 (`https://szara7678.github.io/3D_Poly_Dynasty/`)
 
 ### 🎯 기능
 - **자동 배포**: main 브랜치에 푸시할 때마다 자동으로 gh-pages 브랜치에 배포
 - **수동 배포**: `npm run deploy` 명령어로 즉시 배포 가능
 - **최적화된 빌드**: Vite 설정으로 GitHub Pages 서브디렉토리 배포에 최적화
-- **배포 URL**: `https://[사용자명].github.io/3d-world/`에서 접속 가능
+- **배포 URL**: `https://szara7678.github.io/3D_Poly_Dynasty/`에서 접속 가능
 
 ### 📈 효과
 - 코드 변경 시 자동으로 웹에서 확인 가능
 - GitHub Actions 권한 문제 해결 방법 안내
+- 404 오류 해결로 정상적인 웹사이트 접속 가능
 - 별도의 서버 없이 GitHub에서 무료 호스팅
 - 개발 효율성 대폭 향상
 
