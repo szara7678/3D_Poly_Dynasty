@@ -6,6 +6,7 @@ import { terrain } from "../world/terrain.js";
 import { updateKeyboardOrbit } from "../controls/keyboard.js";
 import { state, subscribe, setPlacing, setSelectedBuilding, setSelectedUnit } from "../game/state.js";
 import { BUILDING_DEFS } from "../game/content/buildings.js";
+import { TownRangeCalculator } from "../utils/townRangeCalculator.js";
 
 // 분리된 매니저 클래스들
 import { BuildingManager } from "./managers/BuildingManager.js";
@@ -14,6 +15,7 @@ import { TownRangeManager } from "./managers/TownRangeManager.js";
 import { InteractionHandler } from "./managers/InteractionHandler.js";
 import { SelectionRingManager } from "./managers/SelectionRingManager.js";
 import { ResourceDisplayManager } from "./managers/ResourceDisplayManager.js";
+import { BlueprintManager } from "./managers/BlueprintManager.js";
 
 export default function Scene3D({ className = "", units = [], count = 260, maxCount = 800, timeScale = 1 }) {
   const containerRef = useRef();
@@ -69,14 +71,14 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     scene.background = new THREE.Color(0xeaf7ff);
 
     const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 500);
-    camera.position.set(10, 12, 10);
+    camera.position.set(15, 35, 15);
     scene.userData.camera = camera;
 
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.minDistance = 3;
-    controls.maxDistance = 50;
+    controls.maxDistance = 150;
     controls.minPolarAngle = 0.1;
     controls.maxPolarAngle = Math.PI * 0.48;
     
@@ -114,6 +116,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     const townRangeManager = new TownRangeManager(scene);
     const selectionRingManager = new SelectionRingManager(scene);
     const resourceDisplayManager = new ResourceDisplayManager(scene);
+    const blueprintManager = new BlueprintManager(scene);
 
 
 
@@ -147,6 +150,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       townRangeManager,
       selectionRingManager,
       resourceDisplayManager,
+      blueprintManager,
       isSoftware
     };
 
@@ -159,6 +163,62 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     let lastFrameT = performance.now();
     let running = true;
     let rafId = 0;
+    
+    // 청사진 위치 추적을 위한 변수들
+    let lastCameraPosition = null;
+    let lastCameraTarget = null;
+    
+    // 청사진 위치 업데이트를 위한 함수들
+    const getCenterGroundXZ = () => {
+      const raycaster = new THREE.Raycaster();
+      const centerNDC = new THREE.Vector2(0, 0);
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      
+      raycaster.setFromCamera(centerNDC, camera);
+      if (terrainMesh) {
+        const hits = raycaster.intersectObject(terrainMesh, true);
+        if (hits && hits.length > 0) {
+          return { x: hits[0].point.x, z: hits[0].point.z };
+        }
+      }
+      const p = new THREE.Vector3();
+      raycaster.ray.intersectPlane(groundPlane, p);
+      return { x: p.x, z: p.z };
+    };
+    
+    const isValidAt = (pos) => {
+      const placingType = state.ui.placing;
+      if (!placingType) return false;
+      
+      if (placingType !== 'town_hall') {
+        const halls = Object.values(state.buildings).filter(b => b.type === 'town_hall');
+        if (halls.length === 0) return false;
+        
+        let insideAny = false;
+        for (const h of halls) {
+          if (h.construct?.active) continue;
+          const r = (24 + 8 * ((h.level || 1) - 1));
+          const cx = h.tile?.x || 0;
+          const cz = h.tile?.z || 0;
+          const d = Math.hypot(pos.x - cx, pos.z - cz);
+          if (d <= r) { insideAny = true; break; }
+        }
+        if (!insideAny) return false;
+      }
+      
+      const defPlace = BUILDING_DEFS[placingType];
+      const minDist = Math.max(1.5, defPlace?.placeRadius || 2.0);
+      for (const id in state.buildings) {
+        const b = state.buildings[id];
+        const otherDefP = BUILDING_DEFS[b.type];
+        const otherR = Math.max(1.5, otherDefP?.placeRadius || 2.0);
+        const dx = (b.tile?.x || 0) - pos.x;
+        const dz = (b.tile?.z || 0) - pos.z;
+        if ((dx * dx + dz * dz) < ((minDist + otherR) * (minDist + otherR))) return false;
+      }
+      return true;
+    };
+    
     const loop = () => {
       if (!running) return;
       const tStart = performance.now();
@@ -196,6 +256,25 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       // 자원 표시 애니메이션 업데이트
       resourceDisplayManager.updateDisplays();
       
+      // 청사진 위치 실시간 업데이트 (드래그 중이 아닐 때)
+      if (state.ui.placing && threeRef.current?.blueprintManager && !threeRef.current.blueprintManager.isDragging) {
+        const blueprintManager = threeRef.current.blueprintManager;
+        const currentPos = camera.position.clone();
+        const currentTarget = controls.target.clone();
+        
+        if (!lastCameraPosition || !lastCameraTarget || 
+            !currentPos.equals(lastCameraPosition) || 
+            !currentTarget.equals(lastCameraTarget)) {
+          
+          const c = getCenterGroundXZ();
+          blueprintManager.setPositionXZ(c.x, c.z);
+          blueprintManager.setValidity(isValidAt(c));
+          
+          lastCameraPosition = currentPos;
+          lastCameraTarget = currentTarget;
+        }
+      }
+      
       const rStart = performance.now();
       renderer.render(scene, camera);
       const rEnd = performance.now();
@@ -225,6 +304,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       townRangeManager.dispose();
       selectionRingManager.dispose();
       resourceDisplayManager.dispose();
+      blueprintManager.dispose();
       renderer.dispose();
     };
   }, [timeScale, terrain]);
@@ -234,36 +314,104 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     const three = threeRef.current;
     if (!three) return;
     
-    const { renderer, scene, camera, townRangeManager, selectionRingManager, labelManager } = three;
+    const { renderer, scene, camera, townRangeManager, selectionRingManager, labelManager, terrainMesh, blueprintManager } = three;
     
     // 상호작용 핸들러 초기화
     const interactionHandler = new InteractionHandler(renderer, camera, scene, threeRef, state);
-    
-    // 고스트 메쉬 관리
-    let ghostMesh = null;
 
+    // 중앙 히트 유틸리티(카메라 정중앙 → 지형 교차 XZ)
+    const raycaster = new THREE.Raycaster();
+    const centerNDC = new THREE.Vector2(0, 0);
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const getCenterGroundXZ = () => {
+      // 지형 우선 레이캐스트
+      raycaster.setFromCamera(centerNDC, camera);
+      if (terrainMesh) {
+        const hits = raycaster.intersectObject(terrainMesh, true);
+        if (hits && hits.length > 0) {
+          return { x: hits[0].point.x, z: hits[0].point.z };
+        }
+      }
+      // 실패 시 y=0 평면 교차
+      const p = new THREE.Vector3();
+      raycaster.ray.intersectPlane(groundPlane, p);
+      return { x: p.x, z: p.z };
+    };
+
+    // 배치 유효성 계산 (InteractionHandler.checkPlacementValidity와 동치)
+    const isValidAt = (pos) => {
+      const placingType = state.ui.placing;
+      if (!placingType) return false;
+      
+      console.log(`[Scene3D 배치 체크] 건물 타입: ${placingType}, 위치: (${pos.x.toFixed(1)}, ${pos.z.toFixed(1)})`);
+      
+      if (placingType !== 'town_hall') {
+        const isWithinRange = TownRangeCalculator.isWithinTownRange(pos.x, pos.z);
+        console.log(`[Scene3D 배치 체크] 마을 범위 내: ${isWithinRange}`);
+        
+        if (!isWithinRange) {
+          console.log(`[Scene3D 배치 체크] 마을 범위 밖에 있어서 배치 불가`);
+          return false;
+        }
+      }
+
+      const defPlace = BUILDING_DEFS[placingType];
+      const minDist = Math.max(1.5, defPlace?.placeRadius || 2.0);
+      console.log(`[Scene3D 배치 체크] 건물 반경: ${minDist}`);
+      
+      for (const id in state.buildings) {
+        const b = state.buildings[id];
+        const otherDefP = BUILDING_DEFS[b.type];
+        const otherR = Math.max(1.5, otherDefP?.placeRadius || 2.0);
+        const dx = (b.tile?.x || 0) - pos.x;
+        const dz = (b.tile?.z || 0) - pos.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        const requiredDistance = minDist + otherR;
+        
+        if (distance < requiredDistance) {
+          console.log(`[Scene3D 배치 체크] 건물 ${b.type}과 겹침: 거리 ${distance.toFixed(1)} < 필요거리 ${requiredDistance.toFixed(1)}`);
+          return false;
+        }
+      }
+      
+      console.log(`[Scene3D 배치 체크] 배치 가능!`);
+      return true;
+    };
+
+    let lastPlacingType = null;
+    let lastCameraPosition = null;
+    let lastCameraTarget = null;
+    
     const unsub = subscribe(() => {
       const placingType = state.ui.placing;
-      
-      // 고스트 메쉬 생성/제거
-      if (placingType && !ghostMesh) {
-        const defPlace = BUILDING_DEFS[placingType];
-        const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-        const mat = new THREE.MeshBasicMaterial({ 
-          color: 0x22c55e, 
-          transparent: true, 
-          opacity: 0.6, 
-          wireframe: false 
-        });
-        ghostMesh = new THREE.Mesh(geo, mat);
-        scene.add(ghostMesh);
-        threeRef.current.ghostMesh = ghostMesh;
-      } else if (!placingType && ghostMesh) {
-        scene.remove(ghostMesh);
-        ghostMesh.geometry.dispose();
-        ghostMesh.material.dispose();
-        ghostMesh = null;
-        threeRef.current.ghostMesh = null;
+
+      // 청사진 생성/제거는 타입 변경시에만 수행
+      if (placingType !== lastPlacingType) {
+        if (placingType) {
+          blueprintManager.createBlueprint(placingType, camera);
+          const c = getCenterGroundXZ();
+          blueprintManager.setPositionXZ(c.x, c.z);
+          blueprintManager.setValidity(isValidAt(c));
+        } else {
+          blueprintManager.clearBlueprint();
+        }
+        lastPlacingType = placingType;
+      } else if (placingType && !blueprintManager.isDragging) {
+        // 카메라 위치나 타겟이 변경되었을 때만 청사진 위치 업데이트
+        const currentPos = camera.position.clone();
+        const currentTarget = controls.target.clone();
+        
+        if (!lastCameraPosition || !lastCameraTarget || 
+            !currentPos.equals(lastCameraPosition) || 
+            !currentTarget.equals(lastCameraTarget)) {
+          
+          const c = getCenterGroundXZ();
+          blueprintManager.setPositionXZ(c.x, c.z);
+          blueprintManager.setValidity(isValidAt(c));
+          
+          lastCameraPosition = currentPos;
+          lastCameraTarget = currentTarget;
+        }
       }
 
       // 마을 범위 표시 업데이트
@@ -287,11 +435,6 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
     return () => {
       unsub();
       interactionHandler.dispose();
-      if (ghostMesh) {
-        scene.remove(ghostMesh);
-        ghostMesh.geometry.dispose();
-        ghostMesh.material.dispose();
-      }
     };
   }, [threeRef]);
 
@@ -307,7 +450,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
   }, [units, hasInitialUnits]);
 
   return (
-    <div ref={containerRef} className={`relative w-full h-full min-h-[480px] bg-[#eaf7ff] rounded-2xl overflow-hidden ${className}`}>
+    <div ref={containerRef} className={`relative w-full h-full min-h-[480px] md:min-h-[480px] min-h-[100vh] bg-[#eaf7ff] md:rounded-2xl overflow-hidden ${className}`}>
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       <Agents 
         key={hasInitialUnits ? 'agents-ready' : 'agents-empty'}

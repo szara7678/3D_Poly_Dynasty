@@ -18,12 +18,13 @@
 - **HUD**: 상단 좌측 자원/인구/명성 표시(스토어 구독 기반 실시간 갱신)
 - **3D 렌더**: InstancedMesh, 보행/스윙, 지형/바이옴, 상태 구동형 `props.units` 반영
 - **MainMenu**: 우상단에 건축🏗️, 건물🏠, 시민👥, 창고📦, 제작🔨, 외교🤝 버튼으로 구성된 탭 메뉴 시스템
-  - 건축 탭: 건물 목록 및 건설 비용 표시, 클릭 시 건설 모드 진입
+  - 건축 탭: 건물 목록 및 건설 비용 표시, 클릭 시 청사진 기반 건설 모드 진입
   - 건물 탭: 현재 건물 목록 표시, 클릭 시 인스펙터에서 건물 정보 확인
   - 시민 탭: 현재 시민 목록 표시, 클릭 시 인스펙터에서 시민 정보 확인
   - 창고 탭: 아이템 목록 표시, 종류별 필터링(소비/장비), 아이템 클릭 시 인스펙터 표시
   - 제작 탭: 제작 가능한 아이템 목록, 시민 숙련도 기반 제작 비용 계산, 아이템 제작
   - 외교 탭: 미구현 상태
+- **청사진 기반 건물 배치 시스템**: 건물 선택 시 맵 중앙에 청사진 생성, 마우스/터치로 드래그하여 위치 조정, 하단 UI에서 건물 배치 버튼으로 확정
 - **선택/인스펙터**: 건물, 시민, 아이템을 클릭해 선택, 하단 인스펙터 표시(더블클릭 포커스 이동)
   - 시민 인스펙터: 가로 3단(기본정보: 직업(속한 건물)/HP(현재/최대)/MP(현재/최대)/스탯/전투스탯 · 스킬(재능)/수련치 · 인벤토리)
   - 아이템 인스펙터: 아이템 정보, 이름 변경, 사용/장착 버튼, 제작 비용 표시
@@ -53,9 +54,10 @@
 │   │   │   ├── BuildingManager.js    # 건물 렌더링 및 인스턴싱 관리
 │   │   │   ├── LabelManager.js       # 건설 ETA 라벨 및 시민 이름 라벨 관리
 │   │   │   ├── TownRangeManager.js   # 마을 범위 표시 및 겹침 처리
-│   │   │   ├── InteractionHandler.js # 마우스 상호작용 처리
+│   │   │   ├── InteractionHandler.js # 마우스 상호작용 처리 (청사진 드래그 포함)
 │   │   │   ├── SelectionRingManager.js # 선택된 건물/유닛 링 표시
-│   │   │   └── ResourceDisplayManager.js # 건물 생산 완료 시 자원 이모지 표시
+│   │   │   ├── ResourceDisplayManager.js # 건물 생산 완료 시 자원 이모지 표시
+│   │   │   └── BlueprintManager.js   # 청사진 시스템 관리 (드래그 앤 드롭)
 │   │   └── agents/Agents.jsx     # InstancedMesh 에이전트 렌더러(상태/자체배회 혼합)
 │   ├── App.jsx                   # 게임 루프/HUD 연결
 │   ├── main.jsx                  # React 진입점
@@ -188,9 +190,11 @@ npm run deploy
 - 틱 처리와 리소스 변경(setRes), addUnit/addBuilding 이후 `notify()` 호출
 - `HUD.jsx`와 상위 `App.jsx`/`Scene3D.jsx`는 구독을 통해 리렌더/프롭스 갱신
 
-## 🧱 Build/배치 루프(최소)
+## 🧱 Build/배치 루프(청사진 기반)
 
-- `components/MainMenu.jsx`: 건축 탭에서 건물 목록/코스트 표시, 클릭 시 `spend()` 후 `addBuilding()`으로 청사진 생성(`construct.active=true`/`eta` 감소)
+- `components/MainMenu.jsx`: 건축 탭에서 건물 목록/코스트 표시, 클릭 시 `setPlacing()`으로 청사진 모드 진입
+- `managers/BlueprintManager.js`: 맵 중앙에 청사진 생성, 마우스 드래그로 위치 조정, 배치 유효성 실시간 체크
+- `components/BuildCancelButton.jsx`: 하단 UI에서 건물 배치 버튼으로 확정, `spend()` 후 `addBuilding()`으로 건물 생성
 - 신규 건물 생성 시 `idleUnits()`에서 인원을 골라 `assignUnitToBuilding()`으로 자동 배치(최대 수용 인원)
 - 건설 진행은 `systems/construction.js`에서 틱마다 `progress/eta` 갱신, 완료 시 `construct.active=false`
 

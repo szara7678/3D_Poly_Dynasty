@@ -19,9 +19,9 @@ export default function ItemInspector() {
   const selectedItemId = state.ui.selectedItemId;
   if (!selectedItemId) {
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[400px] bg-white border border-slate-300 rounded-lg shadow-lg">
-        <div className="p-4 text-center text-slate-400">
-          <div className="text-4xl mb-2">📦</div>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[500px] md:w-[500px] w-[95vw] bg-white/90 backdrop-blur rounded-2xl shadow-lg p-2 text-xs">
+        <div className="text-center text-slate-400">
+          <div className="text-2xl mb-1">📦</div>
           <div>아이템을 선택하세요</div>
         </div>
       </div>
@@ -45,9 +45,9 @@ export default function ItemInspector() {
     equippedInfo = getItemEquippedBy(warehouse, selectedItemId);
   } else {
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[400px] bg-white border border-slate-300 rounded-lg shadow-lg">
-        <div className="p-4 text-center text-slate-400">
-          <div className="text-4xl mb-2">❌</div>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[500px] md:w-[500px] w-[95vw] bg-white/90 backdrop-blur rounded-2xl shadow-lg p-2 text-xs">
+        <div className="text-center text-slate-400">
+          <div className="text-2xl mb-1">❌</div>
           <div>아이템을 찾을 수 없습니다</div>
         </div>
       </div>
@@ -178,173 +178,172 @@ export default function ItemInspector() {
 
   return (
     <>
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[400px] bg-white border border-slate-300 rounded-lg shadow-lg">
-        <div className="p-3">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between mb-3">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-2 w-[400px] md:w-[400px] w-[95vw] text-xs">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
             {isEditingName ? (
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  className="text-sm font-bold border border-slate-300 rounded px-2 py-1"
-                  autoFocus
-                />
-                <button
-                  onClick={handleNameSave}
-                  className="text-green-600 hover:text-green-800 text-xs"
-                >
-                  ✓
-                </button>
-                <button
-                  onClick={handleNameCancel}
-                  className="text-red-600 hover:text-red-800 text-xs"
-                >
-                  ✕
-                </button>
-              </div>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={handleKeyPress}
+                onBlur={handleNameSave}
+                className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none text-xs"
+                autoFocus
+              />
             ) : (
-              <div className="flex items-center gap-2 flex-1">
-                {item.type === ITEM_TYPES.EQUIPMENT && (
-                  <span className="text-xs text-slate-500">
-                    {item.slot === 'weapon' ? '무기' : 
-                     item.slot === 'helmet' ? '투구' :
-                     item.slot === 'armor' ? '갑옷' :
-                     item.slot === 'boots' ? '신발' :
-                     item.slot === 'necklace' ? '목걸이' :
-                     item.slot === 'ring' ? '반지' : item.slot}
-                  </span>
-                )}
-                <h3 className={`text-sm font-bold ${qualityColor}`}>{item.name}</h3>
-                {item.type === ITEM_TYPES.EQUIPMENT && (
-                  <button
-                    onClick={handleNameEdit}
-                    className="text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    ✏️
-                  </button>
-                )}
-              </div>
+              <div className="font-semibold text-xs">{item.name}</div>
             )}
-            <button
-              onClick={() => setSelectedItem(null)}
-              className="text-slate-400 hover:text-slate-600 text-sm"
-            >
-              ✕
-            </button>
+            {item.type === ITEM_TYPES.EQUIPMENT && (
+              <button 
+                className="text-slate-400 hover:text-slate-600 text-xs"
+                onClick={handleNameEdit}
+              >
+                ✏️
+              </button>
+            )}
+            <span className="text-xs bg-slate-200 px-2 py-0.5 rounded-full">
+              {item.type === ITEM_TYPES.EQUIPMENT ? 
+                (item.slot === 'weapon' ? '무기' : 
+                 item.slot === 'helmet' ? '투구' :
+                 item.slot === 'armor' ? '갑옷' :
+                 item.slot === 'boots' ? '신발' :
+                 item.slot === 'necklace' ? '목걸이' :
+                 item.slot === 'ring' ? '반지' : item.slot) : 
+                '소비 아이템'}
+            </span>
           </div>
+          <button className="text-slate-400 hover:text-slate-600 text-sm font-bold" onClick={() => setSelectedItem(null)}>×</button>
+        </div>
 
-          {/* 아이템 정보 */}
-          <div className="space-y-2">
-            {/* 기본 정보 */}
-            <div className="border rounded-lg p-2">
-              <div className="text-xs text-slate-600 mb-1 font-medium">기본 정보</div>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-700">종류</span>
-                  <span className="font-semibold">
-                    {item.type === ITEM_TYPES.CONSUMABLE ? '소비 아이템' : '장비'}
-                  </span>
-                </div>
+        <div className="grid grid-cols-2 gap-2">
+          {/* 기본 정보 */}
+          <div className="border rounded-lg p-1.5 h-32 flex flex-col">
+            <div className="flex-1 overflow-auto space-y-0.5">
+              <div className="text-xs">
+                <div className="font-semibold">종류: {item.type === ITEM_TYPES.CONSUMABLE ? '소비 아이템' : '장비'}</div>
                 {item.type === ITEM_TYPES.CONSUMABLE && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-700">수량</span>
-                    <span className="font-semibold">{itemCount}</span>
-                  </div>
-                )}
-                {item.type === ITEM_TYPES.EQUIPMENT && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-700">슬롯</span>
-                    <span className="font-semibold">
-                      {item.slot === 'weapon' ? '무기' : 
-                       item.slot === 'helmet' ? '투구' :
-                       item.slot === 'armor' ? '갑옷' :
-                       item.slot === 'boots' ? '신발' :
-                       item.slot === 'necklace' ? '목걸이' :
-                       item.slot === 'ring' ? '반지' : item.slot}
-                    </span>
-                  </div>
+                  <div className="font-semibold">수량: {itemCount}</div>
                 )}
                 {equippedInfo && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-700">장착 상태</span>
-                    <span className="font-semibold text-yellow-600">
-                      {state.units[equippedInfo.citizenId]?.name || '알 수 없음'}에게 장착됨
-                    </span>
+                  <div className="font-semibold text-yellow-600">
+                    {state.units[equippedInfo.citizenId]?.name || '알 수 없음'}에게 장착됨
                   </div>
                 )}
               </div>
+              <div className="text-xs">
+                <div className="text-slate-700">{item.description}</div>
+              </div>
             </div>
+          </div>
 
-            {/* 스탯 정보 (장비만) */}
-            {item.type === ITEM_TYPES.EQUIPMENT && item.baseStats && (
-              <div className="border rounded-lg p-2">
-                <div className="text-xs text-slate-600 mb-1 font-medium">스탯</div>
-                <div className="space-y-1 text-xs">
+          {/* 효과/스탯/특수능력 */}
+          <div className="border rounded-lg p-1.5 h-32 flex flex-col">
+            <div className="flex-1 overflow-auto pr-1 space-y-0.5">
+              {/* 소비 아이템 효과 */}
+              {item.type === ITEM_TYPES.CONSUMABLE && item.effect && (
+                <div className="mb-1">
+                  <div className="text-xs text-slate-500 mb-0.5 font-medium">효과</div>
+                  {(() => {
+                    const effect = item.effect;
+                    if (effect.resourceType) {
+                      // 자원 상자 타입
+                      const resourceName = effect.resourceType === 'food' ? '식량' : 
+                                         effect.resourceType === 'gold' ? '금' : 
+                                         effect.resourceType === 'ore' ? '광물' : 
+                                         effect.resourceType === 'herb' ? '허브' : 
+                                         effect.resourceType === 'wood' ? '나무' : effect.resourceType;
+                      return (
+                        <div className="flex items-center justify-between text-xs">
+                          <span>{resourceName}</span>
+                          <span className="font-semibold text-green-600">+{effect.amount}</span>
+                        </div>
+                      );
+                    } else if (effect.skill) {
+                      // 재능 상승 타입
+                      return (
+                        <div className="flex items-center justify-between text-xs">
+                          <span>{effect.skill} 재능</span>
+                          <span className="font-semibold text-green-600">+{effect.amount}</span>
+                        </div>
+                      );
+                    } else if (effect.stat) {
+                      // 스탯 상승 타입
+                      const statName = effect.stat === 'STR' ? '힘' : 
+                                     effect.stat === 'AGI' ? '민첩' : 
+                                     effect.stat === 'VIT' ? '체력' : 
+                                     effect.stat === 'INT' ? '지능' : effect.stat;
+                      return (
+                        <div className="flex items-center justify-between text-xs">
+                          <span>{statName} 스탯</span>
+                          <span className="font-semibold text-green-600">+{effect.amount}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              )}
+
+              {/* 스탯 정보 (장비만) */}
+              {item.type === ITEM_TYPES.EQUIPMENT && item.baseStats && (
+                <div className="mb-1">
+                  <div className="text-xs text-slate-500 mb-0.5 font-medium">스탯</div>
                   {Object.entries(item.baseStats).map(([stat, value]) => (
-                    <div key={stat} className="flex justify-between">
-                      <span className="text-slate-700">{getStatName(stat)}</span>
+                    <div key={stat} className="flex items-center justify-between text-xs">
+                      <span>{getStatName(stat)}</span>
                       <span className="font-semibold text-green-600">+{value}</span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 특수 능력 (장비만) */}
-            {item.type === ITEM_TYPES.EQUIPMENT && item.specialAbilities && item.specialAbilities.length > 0 && (
-              <div className="border rounded-lg p-2">
-                <div className="text-xs text-slate-600 mb-1 font-medium">특수 능력</div>
-                <div className="space-y-1">
+              {/* 특수 능력 (장비만) */}
+              {item.type === ITEM_TYPES.EQUIPMENT && item.specialAbilities && item.specialAbilities.length > 0 && (
+                <div className="mb-1">
+                  <div className="text-xs text-slate-500 mb-0.5 font-medium">특수 능력</div>
                   {item.specialAbilities.map((ability, index) => (
-                    <div key={index} className="bg-blue-50 p-1 rounded text-xs">
+                    <div key={index} className="bg-blue-50 p-1 rounded text-xs mb-0.5">
                       <div className="font-medium text-blue-800">{ability.name}</div>
                       <div className="text-blue-600">{ability.description}</div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* 설명 */}
-            <div className="border rounded-lg p-2">
-              <div className="text-xs text-slate-600 mb-1 font-medium">설명</div>
-              <div className="text-xs text-slate-700">{item.description}</div>
-            </div>
-          </div>
-
-          {/* 액션 버튼들 */}
-          <div className="mt-3 pt-2 border-t border-slate-200">
-            <div className="flex gap-2">
-              {item.type === ITEM_TYPES.EQUIPMENT ? (
-                <>
-                  {equippedInfo ? (
-                    <button
-                      onClick={handleUnequip}
-                      className="flex-1 bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-medium"
-                    >
-                      장착 해제
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleEquip}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium"
-                    >
-                      장착
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button
-                  onClick={handleUse}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium"
-                >
-                  사용
-                </button>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="mt-2 pt-1 border-t border-slate-200">
+          <div className="flex gap-2">
+            {item.type === ITEM_TYPES.EQUIPMENT ? (
+              <>
+                {equippedInfo ? (
+                  <button
+                    onClick={handleUnequip}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-medium"
+                  >
+                    장착 해제
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleEquip}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium"
+                  >
+                    장착
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                onClick={handleUse}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium"
+              >
+                사용
+              </button>
+            )}
           </div>
         </div>
       </div>

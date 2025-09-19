@@ -10,9 +10,10 @@ export class ResourceDisplayManager {
     this.activeDisplays = new Map(); // 활성 표시 객체들을 관리
     this.resourceEmojis = {
       wood: '🪵',
-      stone: '🪨', 
-      food: '🍎',
-      gold: '🪙',
+      ore: '🪨', 
+      food: '🍞',
+      gold: '💰',
+      herb: '🌿',
       iron: '⚒️',
       gems: '💎',
       cloth: '🧵',

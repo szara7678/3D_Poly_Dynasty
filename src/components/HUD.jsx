@@ -29,7 +29,7 @@ export default function HUD(){
   },[]);
   const r = state.res;
   return (
-    <div className="fixed top-2 left-2 bg-black/50 text-white text-sm rounded-xl px-3 py-2 space-x-3">
+    <div className="fixed top-2 left-2 md:left-2 left-1 bg-black/50 text-white text-sm rounded-xl px-3 py-2 space-x-3">
       {/* <span>🖥️ {fps.toFixed(0)} FPS</span> */}
       {/* <span className="text-white/80">(r:{metrics.renderMs.toFixed(1)}ms a:{metrics.agentsMs.toFixed(1)}ms l:{metrics.loopMs.toFixed(1)}ms)</span> */}
       {/* {typeof window !== 'undefined' && window.__INSU_METRICS && (
@@ -37,7 +37,7 @@ export default function HUD(){
       )} */}
       <span>🍞 {r.food.toFixed(0)}</span>
       <span>💰 {r.gold.toFixed(0)}</span>
-      <span>⛏️ {r.ore.toFixed(0)}</span>
+      <span>🪨 {r.ore.toFixed(0)}</span>
       <span>🌿 {r.herb.toFixed(0)}</span>
       <span>🪵 {r.wood.toFixed(0)}</span>
       <span>⭐ {r.reputation.toFixed(0)}</span>

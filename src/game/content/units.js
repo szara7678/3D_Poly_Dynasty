@@ -44,8 +44,8 @@ function randInt(min, max){ return (Math.random()*(max-min+1) + min) | 0; }
 export function rollStats(){
   const out = { ...BASE_STATS };
   for(const k of STAT_KEYS){
-    // 기본 5를 중심으로 -2~+2 분포(정수), 하한 1
-    out[k] = Math.max(1, BASE_STATS[k] + randInt(-2, 2));
+    // 기본 5를 중심으로 -4~+4 분포(정수), 하한 1
+    out[k] = Math.max(1, BASE_STATS[k] + randInt(-4, 4));
   }
   return out;
 }
@@ -62,8 +62,8 @@ export function rollTalent(){
 export function rollPractice(){
   const practice = {};
   for(const k of SKILL_KEYS){
-    // 초기 수련치: 정수 0~10
-    practice[k] = randInt(0, 10);
+    // 초기 수련치: 정수 0~9
+    practice[k] = randInt(0, 9);
   }
   return practice;
 }

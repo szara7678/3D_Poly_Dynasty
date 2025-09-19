@@ -81,10 +81,34 @@ export default function CitizenSelectionModal({ isOpen, onClose, onSelect, title
           />
         </div>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           {filteredCitizens.map((citizen) => {
             const equippedItems = getCitizenEquipment(state.warehouse, citizen.id);
-            const equippedSlots = Object.keys(equippedItems);
+            
+            // 시민의 소속 건물 정보 가져오기
+            const getCitizenBuilding = (citizenId) => {
+              for (const [buildingId, building] of Object.entries(state.buildings)) {
+                if (building.assignedUnits && building.assignedUnits.includes(citizenId)) {
+                  return building.name || building.type;
+                }
+              }
+              return '무소속';
+            };
+            
+            const buildingName = getCitizenBuilding(citizen.id);
+            
+            // 현재 장착할 장비의 부위 정보 가져오기 (ItemInspector에서 전달받은 아이템 정보)
+            const getCurrentItemSlot = () => {
+              const selectedItemId = state.ui.selectedItemId;
+              if (selectedItemId && state.warehouse.equipment[selectedItemId]) {
+                return state.warehouse.equipment[selectedItemId].slot;
+              }
+              return null;
+            };
+            
+            const currentSlot = getCurrentItemSlot();
+            const equippedItemInSlot = currentSlot ? equippedItems[currentSlot] : null;
+            const equippedItem = equippedItemInSlot ? state.warehouse.equipment[equippedItemInSlot] : null;
             
             return (
               <button
@@ -98,11 +122,12 @@ export default function CitizenSelectionModal({ isOpen, onClose, onSelect, title
                 style={{
                   width: '100%',
                   display: 'flex',
-                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                   border: '1px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontSize: '14px',
+                  borderRadius: '4px',
+                  padding: '5px 8px',
+                  fontSize: '11px',
                   backgroundColor: '#f0fdf4',
                   borderColor: '#bbf7d0',
                   cursor: 'pointer'
@@ -114,49 +139,36 @@ export default function CitizenSelectionModal({ isOpen, onClose, onSelect, title
                   e.target.style.backgroundColor = '#f0fdf4';
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: '500' }}>{citizen.name}</span>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>
-                    HP {citizen.hp || 0}/{citizen.hpMax || 0}
+                {/* 왼쪽: 시민 이름 + 소속 배지 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: '500', fontSize: '12px' }}>{citizen.name}</span>
+                  <span style={{ 
+                    fontSize: '9px', 
+                    backgroundColor: '#e2e8f0', 
+                    color: '#475569',
+                    padding: '1px 4px', 
+                    borderRadius: '3px',
+                    fontWeight: '500'
+                  }}>
+                    {buildingName}
                   </span>
                 </div>
                 
-                {/* 착용 장비 정보 */}
-                {equippedSlots.length > 0 && (
-                  <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {equippedSlots.map((slot) => {
-                      const itemId = equippedItems[slot];
-                      const item = state.warehouse.equipment[itemId];
-                      if (!item) return null;
-                      
-                      const specialAbilitiesCount = item.specialAbilities ? item.specialAbilities.length : 0;
-                      const qualityColor = getEquipmentQualityColor(specialAbilitiesCount);
-                      
-                      // 스탯 정보 표시
-                      const statsText = item.baseStats ? 
-                        Object.entries(item.baseStats)
-                          .map(([stat, value]) => {
-                            const statNames = {
-                              attack: '공격력',
-                              defense: '방어력',
-                              health: '체력',
-                              STR: '힘',
-                              AGI: '민첩',
-                              VIT: '체력',
-                              INT: '지능'
-                            };
-                            return `${statNames[stat] || stat}+${value}`;
-                          })
-                          .join(' ') : '';
-                      
-                      return (
-                        <div key={slot} className={`${qualityColor} font-medium`}>
-                          {item.name} ({statsText})
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* 오른쪽: 장착 중인 같은 부위 장비 정보 */}
+                <div style={{ fontSize: '10px', color: '#64748b' }}>
+                  {equippedItem ? (
+                    <span style={{ fontWeight: '500' }}>{equippedItem.name}</span>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>
+                      {currentSlot === 'weapon' ? '무기' :
+                       currentSlot === 'helmet' ? '투구' :
+                       currentSlot === 'armor' ? '갑옷' :
+                       currentSlot === 'boots' ? '신발' :
+                       currentSlot === 'necklace' ? '목걸이' :
+                       currentSlot === 'ring' ? '반지' : '장비'} 없음
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}

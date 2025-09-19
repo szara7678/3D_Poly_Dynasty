@@ -16,3 +16,87 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+/* 모바일 환경에서 가로 모드 강제 및 화면 꽉 채우기 */
+@media screen and (max-width: 768px) {
+  html, body {
+    height: 100vh;
+    height: 100dvh; /* 동적 뷰포트 높이 지원 */
+    overflow: hidden; /* 스크롤 방지 */
+  }
+  
+  .App {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  
+  /* 가로 모드 강제 */
+  @media screen and (orientation: portrait) {
+    html {
+      transform: rotate(90deg);
+      transform-origin: left top;
+      width: 100vh;
+      height: 100vw;
+      position: absolute;
+      top: 100%;
+      left: 0;
+    }
+    
+    body {
+      width: 100vh;
+      height: 100vw;
+      overflow: hidden;
+    }
+    
+    .App {
+      width: 100vh;
+      height: 100vw;
+    }
+  }
+  
+  /* 가로 모드일 때는 원래대로 */
+  @media screen and (orientation: landscape) {
+    html {
+      transform: none;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      position: static;
+      top: auto;
+      left: auto;
+    }
+    
+    body {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+    }
+    
+    .App {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+    }
+  }
+}
+
+/* 알림 애니메이션 */
+@keyframes slideUp {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(-20px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(-40px);
+  }
+}

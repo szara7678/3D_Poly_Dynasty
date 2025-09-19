@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName, removeBuilding, setSelectedItem } from "../game/state";
+import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName, removeBuilding, setSelectedItem, setPlacing } from "../game/state";
 import { BUILDING_DEFS } from "../game/content/buildings";
 import { getEquipmentQualityColor } from "../game/content/items";
 import { getCitizenEquipment } from "../game/systems/warehouse";
@@ -8,12 +8,14 @@ import { updateCitizenCombatStats } from "../game/factory/citizen";
 import ItemInspector from "./ItemInspector";
 import CraftingInspector from "./CraftingInspector";
 import { ITEM_DEFINITIONS } from "../game/content/items";
+import { showNotification } from "../utils/notificationManager";
 
 export default function Inspector(){
   const [, force] = React.useReducer(x=>x+1,0);
   const [editingName, setEditingName] = React.useState(null);
   const [tempName, setTempName] = React.useState("");
   const [showDemolishModal, setShowDemolishModal] = React.useState(false);
+  const [buildingMoveMode, setBuildingMoveMode] = useState(null);
   const inspectorRef = useRef(null);
   
   React.useEffect(()=>{ const u = subscribe(()=>force()); return u; },[]);
@@ -25,6 +27,7 @@ export default function Inspector(){
   // 건물 선택이 바뀔 때 모달 상태 초기화
   React.useEffect(() => {
     setShowDemolishModal(false);
+    setBuildingMoveMode(null);
   }, [selBId]);
   
   // 외부 클릭 감지 (모달 열렸을 때는 무시, 우클릭은 무시)
@@ -93,6 +96,28 @@ export default function Inspector(){
     console.log('모달 상태 변경:', true);
   };
 
+  const handleBuildingMove = (buildingId) => {
+    const building = state.buildings[buildingId];
+    if (!building) return;
+    
+    // HP가 최대치가 아니면 이동 불가
+    if (!building.construct?.active && (building.hp || 0) < (building.hpMax || 0)) {
+      // 화면 중앙에 알림 표시
+      showNotification('건물의 HP가 최대치여야 합니다', {
+        color: '#ef4444',
+        fontSize: '18px',
+        duration: 3000
+      });
+      return;
+    }
+    
+    // 건물 이동 모드 진입
+    setBuildingMoveMode(buildingId);
+    setPlacing(building.type); // 청사진 모드로 진입
+    window.__INSU_BUILDING_MOVE_MODE__ = buildingId; // 전역 변수로 이동 모드 표시
+    setSelectedBuilding(null); // 인스펙터 닫기
+  };
+
   const confirmDemolish = () => {
     const selBId = state.ui.selectedBuildingId;
     console.log('철거 확인 - 선택된 건물 ID:', selBId);
@@ -123,15 +148,14 @@ export default function Inspector(){
 
     const jobName = (()=>{
       const bid = u.assignedBuildingId;
-      if(!bid) return "유휴";
+      if(!bid) return "무소속";
       const b = state.buildings[bid];
-      if(!b) return "유휴";
-      const d = BUILDING_DEFS[b.type]||{};
-      return d.name || b.type;
+      if(!b) return "무소속";
+      return b.name || BUILDING_DEFS[b.type]?.name || b.type;
     })();
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[720px] text-sm" ref={inspectorRef}>
-        <div className="flex items-center justify-between">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-2 w-[500px] md:w-[500px] w-[95vw] text-xs" ref={inspectorRef}>
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             {editingName === `unit_${u.id}` ? (
               <input
@@ -140,52 +164,46 @@ export default function Inspector(){
                 onChange={(e) => setTempName(e.target.value)}
                 onKeyDown={handleKeyPress}
                 onBlur={handleNameSave}
-                className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none"
+                className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none text-xs"
                 autoFocus
               />
             ) : (
-              <div className="font-semibold">{u.name}</div>
+              <div className="font-semibold text-xs">{u.name}</div>
             )}
             <button 
-              className="text-slate-400 hover:text-slate-600 text-sm"
+              className="text-slate-400 hover:text-slate-600 text-xs"
               onClick={() => handleNameEdit('unit', u.id, u.name)}
             >
               ✏️
             </button>
+            <span className="text-xs bg-slate-200 px-2 py-0.5 rounded-full">{jobName}</span>
           </div>
-          <button className="text-slate-400 hover:text-slate-600 text-lg font-bold" onClick={()=>setSelectedUnit(null)}>×</button>
+          <button className="text-slate-400 hover:text-slate-600 text-sm font-bold" onClick={()=>setSelectedUnit(null)}>×</button>
         </div>
-        <div className="mt-2 grid grid-cols-3 gap-3">
-          <div className="border rounded-lg p-2 h-56 flex flex-col">
-            <div className="font-medium text-slate-700 mb-1">기본 정보</div>
-            <div className="flex-1 overflow-auto space-y-1">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="border rounded-lg p-1.5 h-40 flex flex-col">
+            <div className="text-xs text-slate-500 mb-1 font-medium">스탯</div>
+            <div className="flex-1 overflow-auto space-y-0.5">
               <div className="text-xs">
-                <div className="font-semibold">소속: {jobName}</div>
                 <div className="font-semibold">HP: {u.hp||0}/{u.hpMax||0}</div>
                 <div className="font-semibold">MP: {u.mp||0}/{u.mpMax||0}</div>
               </div>
-              <div className="space-y-1 text-xs mt-2">
+              <div className="text-xs">
                 <div>공격력: <span className="font-semibold">{updatedCitizen.combatStats?.attack||0}</span></div>
-                <div>방어력: <span className="font-semibold">{updatedCitizen.combatStats?.defense||0}</span></div>
                 <div>마법공격: <span className="font-semibold">{updatedCitizen.combatStats?.magicAttack||0}</span></div>
-                <div className="grid grid-cols-2">
-                  <span>STR: <span className="font-semibold">{updatedCitizen.enhancedStats?.STR||updatedCitizen.stats.STR||0}</span></span>
-                  <span className="text-left">AGI: <span className="font-semibold">{updatedCitizen.enhancedStats?.AGI||updatedCitizen.stats.AGI||0}</span></span>
-                </div>
-                <div className="grid grid-cols-2">
-                  <span>VIT: <span className="font-semibold">{updatedCitizen.enhancedStats?.VIT||updatedCitizen.stats.VIT||0}</span></span>
-                  <span className="text-left">INT: <span className="font-semibold">{updatedCitizen.enhancedStats?.INT||updatedCitizen.stats.INT||0}</span></span>
-                </div>
+                <div>방어력: <span className="font-semibold">{updatedCitizen.combatStats?.defense||0}</span></div>
+                <div>STR: <span className="font-semibold">{updatedCitizen.enhancedStats?.STR||updatedCitizen.stats.STR||0}</span> AGI: <span className="font-semibold">{updatedCitizen.enhancedStats?.AGI||updatedCitizen.stats.AGI||0}</span></div>
+                <div>VIT: <span className="font-semibold">{updatedCitizen.enhancedStats?.VIT||updatedCitizen.stats.VIT||0}</span> INT: <span className="font-semibold">{updatedCitizen.enhancedStats?.INT||updatedCitizen.stats.INT||0}</span></div>
               </div>
             </div>
           </div>
-          <div className="border rounded-lg p-2 h-56 flex flex-col">
-            <div className="font-medium text-slate-700 mb-1">스킬(재능) · 수련치</div>
-            <div className="flex-1 overflow-auto pr-1 space-y-1">
+          <div className="border rounded-lg p-1.5 h-40 flex flex-col">
+            <div className="text-xs text-slate-500 mb-1 font-medium">스킬(재능) 수련치</div>
+            <div className="flex-1 overflow-auto pr-1 space-y-0.5">
               {skillEntries.map(([k,v])=> {
                 const p = practice[k] ?? 0;
                 return (
-                  <div key={k} className="flex items-center justify-between">
+                  <div key={k} className="flex items-center justify-between text-xs">
                     <span>{k} (<span className="text-slate-600">{v}</span>)</span>
                     <span className="font-semibold">{p}</span>
                   </div>
@@ -194,79 +212,74 @@ export default function Inspector(){
               {skillEntries.length===0 && <div className="text-xs text-slate-400">스킬 없음</div>}
             </div>
           </div>
-          <div className="border rounded-lg p-2 h-56 flex flex-col">
-            <div className="font-medium text-slate-700 mb-1">인벤토리</div>
-            <div className="flex-1 overflow-auto pr-1 space-y-1">
-              {/* 장착된 장비 섹션 */}
-              <div className="mb-2">
-                <div className="text-xs text-slate-500 mb-1 font-medium">장착된 장비</div>
-                {(() => {
-                  const equippedItems = getCitizenEquipment(state.warehouse, u.id);
-                  
-                  const slots = ['weapon', 'helmet', 'armor', 'boots', 'necklace', 'ring'];
-                  const slotNames = {
-                    weapon: '무기',
-                    helmet: '투구', 
-                    armor: '갑옷',
-                    boots: '신발',
-                    necklace: '목걸이',
-                    ring: '반지'
-                  };
-                  
-                  return slots.map(slot => {
-                    const uniqueItemId = equippedItems[slot];
-                    if (!uniqueItemId) {
-                      return (
-                        <div key={slot} className="flex items-center justify-between text-xs text-slate-400 px-1 py-0.5">
-                          <span>{slotNames[slot]}</span>
-                          <span>미착용</span>
-                        </div>
-                      );
-                    }
-                    
-                    const equipment = state.warehouse.equipment[uniqueItemId];
-                    if (!equipment) return null;
-                    
-                    const specialAbilitiesCount = equipment.specialAbilities ? equipment.specialAbilities.length : 0;
-                    const qualityColor = getEquipmentQualityColor(specialAbilitiesCount);
-                    
+          <div className="border rounded-lg p-1.5 h-40 flex flex-col">
+            <div className="text-xs text-slate-500 mb-1 font-medium">장착된 장비</div>
+            <div className="flex-1 overflow-auto pr-1 space-y-0.5">
+              {(() => {
+                const equippedItems = getCitizenEquipment(state.warehouse, u.id);
+                
+                const slots = ['weapon', 'helmet', 'armor', 'boots', 'necklace', 'ring'];
+                const slotNames = {
+                  weapon: '무기',
+                  helmet: '투구', 
+                  armor: '갑옷',
+                  boots: '신발',
+                  necklace: '목걸이',
+                  ring: '반지'
+                };
+                
+                return slots.map(slot => {
+                  const uniqueItemId = equippedItems[slot];
+                  if (!uniqueItemId) {
                     return (
-                      <div 
-                        key={slot} 
-                        className="flex items-center justify-between cursor-pointer hover:bg-slate-100 rounded px-1 py-0.5"
-                        onClick={() => setSelectedItem(uniqueItemId)}
-                      >
-                        <div className="flex flex-col">
+                      <div key={slot} className="flex items-center justify-between text-xs text-slate-400 px-0.5 py-0.5">
+                        <span>{slotNames[slot]}</span>
+                        <span>미착용</span>
+                      </div>
+                    );
+                  }
+                  
+                  const equipment = state.warehouse.equipment[uniqueItemId];
+                  if (!equipment) return null;
+                  
+                  const specialAbilitiesCount = equipment.specialAbilities ? equipment.specialAbilities.length : 0;
+                  const qualityColor = getEquipmentQualityColor(specialAbilitiesCount);
+                  
+                  return (
+                    <div 
+                      key={slot} 
+                      className="flex items-center justify-between cursor-pointer hover:bg-slate-100 rounded px-0.5 py-0.5"
+                      onClick={() => setSelectedItem(uniqueItemId)}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-xs text-slate-500">
+                          {slotNames[slot]}
+                        </span>
+                        <div className="flex items-center gap-1">
                           <span className={`text-xs font-medium ${qualityColor}`}>
                             {equipment.name}
                           </span>
-                          <span className="text-xs text-slate-500">
-                            {slotNames[slot]}
-                          </span>
-                        </div>
-                        <div className="text-right">
                           {equipment.baseStats && (
-                            <div className="text-xs text-slate-600">
+                            <span className="text-xs text-slate-600">
                               {Object.entries(equipment.baseStats).map(([stat, value]) => 
                                 `${stat === 'attack' ? '공격' : stat === 'defense' ? '방어' : stat === 'health' ? '체력' : stat}+${value}`
                               ).join(' ')}
-                            </div>
+                            </span>
                           )}
                         </div>
                       </div>
-                    );
-                  });
-                })()}
-              </div>
+                    </div>
+                  );
+                });
+              })()}
               
               {/* 기존 인벤토리 아이템 */}
               {invEntries.map(([k,c])=> (
-                <div key={k} className="flex items-center justify-between">
+                <div key={k} className="flex items-center justify-between text-xs">
                   <span>{k}</span>
                   <span className="font-semibold">{c}</span>
                 </div>
               ))}
-              {invEntries.length===0 && <div className="text-xs text-slate-400">아이템 없음</div>}
             </div>
           </div>
         </div>
@@ -282,7 +295,7 @@ export default function Inspector(){
                           !state.warehouse.equipment[selItemId];
     
     return (
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[400px]" ref={inspectorRef}>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-[400px] md:w-[400px] w-[95vw]" ref={inspectorRef}>
         {isCraftingItem ? <CraftingInspector /> : <ItemInspector />}
       </div>
     );
@@ -328,7 +341,12 @@ export default function Inspector(){
 
   return (
     <>
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[520px] text-sm" ref={inspectorRef}>
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-2xl shadow-lg p-3 w-[520px] md:w-[520px] w-[95vw] text-sm" ref={inspectorRef}>
+        {/* 닫기 버튼을 맨 위로 */}
+        <div className="flex justify-end mb-2">
+          <button className="text-xs text-slate-600 hover:underline" onClick={()=>setSelectedBuilding(null)}>✕</button>
+        </div>
+        
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {editingName === `building_${b.id}` ? (
@@ -345,10 +363,20 @@ export default function Inspector(){
               <div className="font-semibold">{b.name || def.name || b.type} Lv.{b.level||1}</div>
             )}
             <button 
-              className="text-slate-400 hover:text-slate-600 text-sm"
+              className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-1"
               onClick={() => handleNameEdit('building', b.id, b.name || def.name || b.type)}
             >
-              ✏️
+              <span>✏️</span>
+              <span>변경</span>
+            </button>
+            <button 
+              className="text-green-400 hover:text-green-600 text-sm flex items-center gap-1"
+              onClick={() => handleBuildingMove(b.id)}
+              title="건물 이동"
+              disabled={!b.construct?.active && (b.hp || 0) < (b.hpMax || 0)}
+            >
+              <span>📦</span>
+              <span>이동</span>
             </button>
             <button 
               className="text-red-400 hover:text-red-600 text-sm flex items-center gap-1"
@@ -359,10 +387,9 @@ export default function Inspector(){
               <span>철거</span>
             </button>
           </div>
-          <div className="text-xs text-slate-600">HP {b.hp||0}/{b.hpMax||0} · XP {Math.floor(b.xp||0)}/{b.xpToNext||0}</div>
-        </div>
-        <div className="mt-1 text-right">
-          <button className="text-xs text-slate-600 hover:underline" onClick={()=>setSelectedBuilding(null)}>닫기</button>
+          <div className="flex items-center gap-2">
+            <div className="text-xs text-slate-600">HP {b.hp||0}/{b.hpMax||0} · XP {Math.floor(b.xp||0)}/{b.xpToNext||0}</div>
+          </div>
         </div>
         {b.construct?.active && (
           <div className="mt-2 text-xs text-emerald-700">공사 중 · 남은 시간 {Math.max(0,b.construct?.eta||0).toFixed(1)}s · 진행 {(Math.min(1,b.construct?.progress||0)*100).toFixed(0)}%</div>
@@ -371,12 +398,21 @@ export default function Inspector(){
           <div>
             <div className="text-xs text-slate-600 mb-1">배치 인원 {workers.length}/{cap}</div>
             <div className="space-y-1 max-h-32 overflow-auto pr-1">
-              {workers.map(u=> (
+              {workers
+                .sort((a, b) => {
+                  if (!def.skill) return 0;
+                  const aTalent = (a.talents?.[def.skill] || 0);
+                  const bTalent = (b.talents?.[def.skill] || 0);
+                  return bTalent - aTalent;
+                })
+                .map(u=> (
                 <div key={u.id} className={`flex items-center justify-between border rounded-lg px-2 py-1 ${u.hidden ? 'bg-slate-100' : ''}`}>
                   <span className={u.hidden ? 'text-slate-500' : ''}>{u.name}</span>
                   <div className="flex items-center gap-2">
                     {def.skill && (
-                      (()=>{ const p = computeProductivity(u); return p ? <span className="text-[11px] text-slate-600">{p.res?`${p.res}:`:''}{(p.base*p.eff).toFixed(1)}</span> : null; })()
+                      <span className="text-[11px] text-slate-600">
+                        {def.skill}({(u.talents?.[def.skill] || 0)}) {Math.floor(u.practice?.[def.skill] || 0)}
+                      </span>
                     )}
                     {u.hidden ? (
                       <button className="text-green-600 hover:underline text-xs" onClick={()=>onExport(u.id)}>내보내기</button>
@@ -393,12 +429,22 @@ export default function Inspector(){
           <div>
             <div className="text-xs text-slate-600 mb-1">유휴 인원</div>
             <div className="space-y-1 max-h-32 overflow-auto pr-1">
-              {assignable.slice(0,20).map(u=> (
+              {assignable
+                .sort((a, b) => {
+                  if (!def.skill) return 0;
+                  const aTalent = (a.talents?.[def.skill] || 0);
+                  const bTalent = (b.talents?.[def.skill] || 0);
+                  return bTalent - aTalent;
+                })
+                .slice(0,20)
+                .map(u=> (
                 <div key={u.id} className="flex items-center justify-between border rounded-lg px-2 py-1">
                   <span>{u.name}</span>
                   <div className="flex items-center gap-2">
                     {def.skill && (
-                      (()=>{ const p = computeProductivity(u); return p ? <span className="text-[11px] text-slate-600">{p.res?`${p.res}:`:''}{(p.base*p.eff).toFixed(1)}</span> : null; })()
+                      <span className="text-[11px] text-slate-600">
+                        {def.skill}({(u.talents?.[def.skill] || 0)}) {Math.floor(u.practice?.[def.skill] || 0)}
+                      </span>
                     )}
                     <button className="text-emerald-700 hover:underline disabled:text-slate-400" disabled={(b.workers||[]).length>=cap} onClick={()=>onAssign(u.id)}>배치</button>
                   </div>

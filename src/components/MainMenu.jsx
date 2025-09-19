@@ -7,6 +7,8 @@ import CraftingTab from "./CraftingTab";
 export default function MainMenu() {
   const [, force] = React.useReducer(x => x + 1, 0);
   const [activeTab, setActiveTab] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [citizenFilter, setCitizenFilter] = useState('all');
   const menuRef = useRef(null);
   
   React.useEffect(() => {
@@ -46,6 +48,10 @@ export default function MainMenu() {
     } else {
       setActiveTab(tabId);
     }
+  };
+
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
   };
 
   const handleBuildClick = (type) => {
@@ -117,30 +123,78 @@ export default function MainMenu() {
     </div>
   );
 
-  const renderCitizensTab = () => (
-    <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
-      {Object.values(state.units).map((unit) => {
-        const bid = unit.assignedBuildingId;
-        const b = bid ? state.buildings[bid] : null;
-        const job = b ? (BUILDING_DEFS[b.type]?.name || b.type) : "유휴";
-        return (
-          <button
-            key={unit.id}
-            onClick={() => handleCitizenClick(unit.id)}
-            className="w-full flex items-center justify-between border rounded-lg px-2 py-1 text-sm bg-green-50 hover:bg-green-100 border-green-300"
-          >
-            <span>{unit.name}</span>
-            <span className="text-[11px] text-slate-600">
-              {job} · HP {unit.hp || 0}/{unit.hpMax || 0}
-            </span>
-          </button>
-        );
-      })}
-      {Object.values(state.units).length === 0 && (
-        <div className="text-sm text-slate-400 text-center py-4">시민이 없습니다</div>
-      )}
-    </div>
-  );
+  const renderCitizensTab = () => {
+    // 건물 타입별 필터링
+    const filteredUnits = Object.values(state.units).filter((unit) => {
+      if (citizenFilter === 'all') return true;
+      if (citizenFilter === 'unassigned') return !unit.assignedBuildingId;
+      
+      const bid = unit.assignedBuildingId;
+      const building = bid ? state.buildings[bid] : null;
+      return building && building.type === citizenFilter;
+    });
+
+    // 사용 가능한 건물 타입들 수집
+    const buildingTypes = ['all', 'unassigned'];
+    Object.values(state.buildings).forEach(building => {
+      if (!buildingTypes.includes(building.type)) {
+        buildingTypes.push(building.type);
+      }
+    });
+
+    return (
+      <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
+        {/* 건물 타입별 필터 버튼들 - 한 줄로 가로 스크롤 */}
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+          {buildingTypes.map((buildingType) => {
+            const buildingDef = BUILDING_DEFS[buildingType];
+            const displayName = buildingType === 'all' ? '전체' : 
+                              buildingType === 'unassigned' ? '무소속' : 
+                              buildingDef?.name || buildingType;
+            
+            return (
+              <button
+                key={buildingType}
+                onClick={() => setCitizenFilter(buildingType)}
+                className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                  citizenFilter === buildingType 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-gray-500 text-gray-300'
+                }`}
+              >
+                {displayName}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 필터링된 시민 목록 */}
+        {filteredUnits.map((unit) => {
+          const bid = unit.assignedBuildingId;
+          const b = bid ? state.buildings[bid] : null;
+          const job = b ? (b.name || BUILDING_DEFS[b.type]?.name || b.type) : "무소속";
+          return (
+            <button
+              key={unit.id}
+              onClick={() => handleCitizenClick(unit.id)}
+              className="w-full flex items-center justify-between border rounded-lg px-2 py-1 text-sm bg-green-50 hover:bg-green-100 border-green-300"
+            >
+              <span>{unit.name}</span>
+              <span className="text-[11px] text-slate-600">
+                {job} · HP {unit.hp || 0}/{unit.hpMax || 0}
+              </span>
+            </button>
+          );
+        })}
+        
+        {filteredUnits.length === 0 && (
+          <div className="text-sm text-slate-400 text-center py-4">
+            {citizenFilter === 'all' ? '시민이 없습니다' : '해당 건물에 배치된 시민이 없습니다'}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderWarehouseTab = () => (
     <WarehouseTab />
@@ -176,28 +230,10 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="absolute top-2 right-2" ref={menuRef}>
-      {/* 메인 버튼들 */}
-      <div className="flex gap-2 mb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabClick(tab.id)}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? "bg-blue-500 text-white"
-                : "bg-white/90 backdrop-blur text-slate-700 hover:bg-blue-50"
-            }`}
-          >
-            <span className="mr-1">{tab.icon}</span>
-            {tab.name}
-          </button>
-        ))}
-      </div>
-
-      {/* 탭 콘텐츠 박스 */}
+    <div className="fixed top-2 right-2 md:right-2 right-1 flex" ref={menuRef}>
+      {/* 탭 콘텐츠 박스 (왼쪽에 표시) */}
       {activeTab && (
-        <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-3 w-64">
+        <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg p-3 w-64 mr-2">
           <div className="font-semibold mb-2 text-slate-700">
             {tabs.find(t => t.id === activeTab)?.name}
           </div>
@@ -209,6 +245,39 @@ export default function MainMenu() {
           )}
         </div>
       )}
+
+      {/* 메인 메뉴 판 */}
+      <div className="bg-white/90 backdrop-blur rounded-xl shadow-lg">
+        {/* 토글 버튼 */}
+        <div className="w-full">
+          <button 
+            onClick={toggleExpanded}
+            className="w-full text-slate-600 hover:text-slate-800 transition-colors p-2"
+          >
+            {isExpanded ? '▶' : '◀'}
+          </button>
+        </div>
+        
+        {/* 메뉴 항목들 */}
+        <div className={`transition-all duration-300 ${isExpanded ? 'p-2' : 'p-1'}`}>
+          <div className={`space-y-1 ${isExpanded ? '' : 'space-y-0.5'}`}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab.id)}
+                className={`w-full flex items-center transition-colors rounded-lg px-2 py-1 ${
+                  activeTab === tab.id
+                    ? "bg-blue-500 text-white"
+                    : "hover:bg-blue-50 text-slate-700"
+                }`}
+              >
+                <span className="text-sm">{tab.icon}</span>
+                {isExpanded && <span className="ml-2 text-sm font-medium">{tab.name}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

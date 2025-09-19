@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { BUILDING_DEFS } from "../../game/content/buildings.js";
 import { terrain } from "../../world/terrain.js";
+import { TownRangeCalculator } from "../../utils/townRangeCalculator.js";
 import { 
   spend, 
   uid, 
@@ -89,13 +90,21 @@ export class InteractionHandler {
    */
   onMove(e) {
     if (!this.state.ui.placing) return;
+    
+    // 터치 이벤트는 무시
+    if (e.pointerType === 'touch') {
+      return;
+    }
+    
     const hit = this.getGroundIntersection(e);
     
-    const ghostMesh = this.threeRef.current?.ghostMesh;
-    if (ghostMesh) {
+    // 청사진 드래그 처리
+    const blueprintManager = this.threeRef.current?.blueprintManager;
+    if (blueprintManager) {
       const isValidPlacement = this.checkPlacementValidity(hit);
-      this.updateGhostMesh(ghostMesh, hit, isValidPlacement);
-      this.updateTownRangeColors(isValidPlacement);
+      blueprintManager.updateDrag(hit, isValidPlacement);
+      // 마을 범위 색상 변경 비활성화
+      // this.updateTownRangeColors(isValidPlacement);
     }
   }
 
@@ -106,28 +115,23 @@ export class InteractionHandler {
    */
   checkPlacementValidity(hit) {
     const placingType = this.state.ui.placing;
-    const halls = Object.values(this.state.buildings).filter(b => b.type === "town_hall" && !b.construct?.active);
+    
+    console.log(`[배치 체크] 건물 타입: ${placingType}, 위치: (${hit.x.toFixed(1)}, ${hit.z.toFixed(1)})`);
     
     if (placingType !== 'town_hall') {
-      if (halls.length === 0) return false;
+      const isWithinRange = TownRangeCalculator.isWithinTownRange(hit.x, hit.z);
+      console.log(`[배치 체크] 마을 범위 내: ${isWithinRange}`);
       
-      let insideAny = false;
-      for (const h of halls) {
-        const r = (24 + 8 * ((h.level || 1) - 1));
-        const cx = h.tile?.x || 0;
-        const cz = h.tile?.z || 0;
-        const d = Math.hypot(hit.x - cx, hit.z - cz);
-        if (d <= r) {
-          insideAny = true;
-          break;
-        }
+      if (!isWithinRange) {
+        console.log(`[배치 체크] 마을 범위 밖에 있어서 배치 불가`);
+        return false;
       }
-      if (!insideAny) return false;
     }
     
     // 다른 건물과 겹침 체크
     const defPlace = BUILDING_DEFS[placingType];
     const minDist = Math.max(1.5, defPlace?.placeRadius || 2.0);
+    console.log(`[배치 체크] 건물 반경: ${minDist}`);
     
     for (const id in this.state.buildings) {
       const b = this.state.buildings[id];
@@ -135,11 +139,16 @@ export class InteractionHandler {
       const otherR = Math.max(1.5, otherDefP?.placeRadius || 2.0);
       const dx = (b.tile?.x || 0) - hit.x;
       const dz = (b.tile?.z || 0) - hit.z;
-      if ((dx * dx + dz * dz) < ((minDist + otherR) * (minDist + otherR))) {
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      const requiredDistance = minDist + otherR;
+      
+      if (distance < requiredDistance) {
+        console.log(`[배치 체크] 건물 ${b.type}과 겹침: 거리 ${distance.toFixed(1)} < 필요거리 ${requiredDistance.toFixed(1)}`);
         return false;
       }
     }
     
+    console.log(`[배치 체크] 배치 가능!`);
     return true;
   }
 
@@ -183,8 +192,24 @@ export class InteractionHandler {
       return;
     }
 
-    // 배치 모드: 건물 배치
-    this.handleBuildingPlacement(hit);
+    // 배치 모드: 청사진 드래그 시작 (터치 제외)
+    // 터치 이벤트인지 확인 (pointerType이 'touch'인 경우)
+    if (e.pointerType === 'touch') {
+      return; // 터치 이벤트는 무시
+    }
+    
+    this.handleBlueprintDrag(hit);
+  }
+
+  /**
+   * 청사진 드래그 처리 (마우스만, 터치 제외)
+   */
+  handleBlueprintDrag(hit) {
+    // 터치 이벤트는 무시하고 마우스 이벤트만 처리
+    const blueprintManager = this.threeRef.current?.blueprintManager;
+    if (blueprintManager) {
+      blueprintManager.startDrag(hit);
+    }
   }
 
   /**
@@ -244,7 +269,7 @@ export class InteractionHandler {
 
     // 허용 반경 체크(다중 회관 중 하나라도 포함되면 OK)
     if (type !== 'town_hall') {
-      const halls = Object.values(this.state.buildings).filter(b => b.type === "town_hall" && !b.construct?.active);
+      const halls = Object.values(this.state.buildings).filter(b => b.type === "town_hall");
       if (halls.length === 0) return;
       
       let insideAny = false;
@@ -403,7 +428,20 @@ export class InteractionHandler {
    * 마우스 업 이벤트 처리
    */
   onMouseUp(e) {
-    if (e.button === 2) this.onRightClick(e);
+    // 터치 이벤트는 무시
+    if (e.pointerType === 'touch') {
+      return;
+    }
+    
+    if (e.button === 2) {
+      this.onRightClick(e);
+    } else if (e.button === 0) {
+      // 왼쪽 마우스 버튼 업: 청사진 드래그 종료
+      const blueprintManager = this.threeRef.current?.blueprintManager;
+      if (blueprintManager) {
+        blueprintManager.endDrag();
+      }
+    }
   }
 
   /**

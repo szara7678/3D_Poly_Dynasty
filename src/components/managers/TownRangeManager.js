@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { TownRangeCalculator } from "../../utils/townRangeCalculator.js";
 
 /**
  * 마을 범위 표시 관리 클래스
@@ -23,8 +24,7 @@ export class TownRangeManager {
     for (const h of halls) {
       const hid = h.id;
       seen.add(hid);
-      const level = h.level || 1;
-      const radius = 15 + 8 * (level - 1);
+      const radius = TownRangeCalculator.getHallRadius(h);
       
       let g = this.townRangeGroups.get(hid);
       if (!g) {
@@ -48,10 +48,10 @@ export class TownRangeManager {
     // 마을 범위 겹치는 부분 처리 - 겹치는 부분의 투명도를 조정
     this.handleOverlappingRanges(halls);
     
-    // 배치 모드일 때 색상 변경
-    if (placingType && placingType !== 'town_hall') {
-      this.updateRangeColorsForPlacement(isValidPlacement);
-    }
+    // 배치 모드일 때 색상 변경 비활성화
+    // if (placingType && placingType !== 'town_hall') {
+    //   this.updateRangeColorsForPlacement(isValidPlacement);
+    // }
     
     // 정리
     this.cleanupUnusedGroups(seen);

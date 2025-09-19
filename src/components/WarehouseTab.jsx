@@ -82,11 +82,11 @@ export default function WarehouseTab() {
   return (
     <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
       <div className="mb-4">
-        {/* 필터 버튼들 */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        {/* 대분류 필터 버튼들 - 한 줄로 가로 스크롤 */}
+        <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
           <button
             onClick={() => { setFilter('all'); setSubFilter('all'); }}
-            className={`px-3 py-1 rounded text-sm ${
+            className={`px-3 py-1 rounded text-sm whitespace-nowrap ${
               filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300'
             }`}
           >
@@ -94,7 +94,7 @@ export default function WarehouseTab() {
           </button>
           <button
             onClick={() => { setFilter('consumable'); setSubFilter('all'); }}
-            className={`px-3 py-1 rounded text-sm ${
+            className={`px-3 py-1 rounded text-sm whitespace-nowrap ${
               filter === 'consumable' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300'
             }`}
           >
@@ -102,7 +102,7 @@ export default function WarehouseTab() {
           </button>
           <button
             onClick={() => { setFilter('equipment'); setSubFilter('all'); }}
-            className={`px-3 py-1 rounded text-sm ${
+            className={`px-3 py-1 rounded text-sm whitespace-nowrap ${
               filter === 'equipment' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300'
             }`}
           >
@@ -110,102 +110,106 @@ export default function WarehouseTab() {
           </button>
         </div>
 
-        {/* 서브 필터 버튼들 */}
-        {filter === 'consumable' && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            <button
-              onClick={() => setSubFilter('all')}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === 'all' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              전체
-            </button>
-            <button
-              onClick={() => setSubFilter('resource_box')}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === 'resource_box' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              재료 상자
-            </button>
-            <button
-              onClick={() => setSubFilter('talent_boost')}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === 'talent_boost' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              재능 상승
-            </button>
-            <button
-              onClick={() => setSubFilter('stat_boost')}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === 'stat_boost' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              스탯 상승
-            </button>
-          </div>
-        )}
+        {/* 소분류 필터 버튼들 - 한 줄로 가로 스크롤 */}
+        {(filter === 'consumable' || filter === 'equipment') && (
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
+            {filter === 'consumable' && (
+              <>
+                <button
+                  onClick={() => setSubFilter('all')}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === 'all' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  onClick={() => setSubFilter('resource_box')}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === 'resource_box' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  재료 상자
+                </button>
+                <button
+                  onClick={() => setSubFilter('talent_boost')}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === 'talent_boost' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  재능 상승
+                </button>
+                <button
+                  onClick={() => setSubFilter('stat_boost')}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === 'stat_boost' ? 'bg-green-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  스탯 상승
+                </button>
+              </>
+            )}
 
-        {filter === 'equipment' && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            <button
-              onClick={() => setSubFilter('all')}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              전체
-            </button>
-            <button
-              onClick={() => setSubFilter(EQUIPMENT_SLOTS.WEAPON)}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === EQUIPMENT_SLOTS.WEAPON ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              무기
-            </button>
-            <button
-              onClick={() => setSubFilter(EQUIPMENT_SLOTS.HELMET)}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === EQUIPMENT_SLOTS.HELMET ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              투구
-            </button>
-            <button
-              onClick={() => setSubFilter(EQUIPMENT_SLOTS.ARMOR)}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === EQUIPMENT_SLOTS.ARMOR ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              갑옷
-            </button>
-            <button
-              onClick={() => setSubFilter(EQUIPMENT_SLOTS.BOOTS)}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === EQUIPMENT_SLOTS.BOOTS ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              신발
-            </button>
-            <button
-              onClick={() => setSubFilter(EQUIPMENT_SLOTS.NECKLACE)}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === EQUIPMENT_SLOTS.NECKLACE ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              목걸이
-            </button>
-            <button
-              onClick={() => setSubFilter(EQUIPMENT_SLOTS.RING)}
-              className={`px-2 py-1 rounded text-xs ${
-                subFilter === EQUIPMENT_SLOTS.RING ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
-              }`}
-            >
-              반지
-            </button>
+            {filter === 'equipment' && (
+              <>
+                <button
+                  onClick={() => setSubFilter('all')}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  전체
+                </button>
+                <button
+                  onClick={() => setSubFilter(EQUIPMENT_SLOTS.WEAPON)}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === EQUIPMENT_SLOTS.WEAPON ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  무기
+                </button>
+                <button
+                  onClick={() => setSubFilter(EQUIPMENT_SLOTS.HELMET)}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === EQUIPMENT_SLOTS.HELMET ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  투구
+                </button>
+                <button
+                  onClick={() => setSubFilter(EQUIPMENT_SLOTS.ARMOR)}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === EQUIPMENT_SLOTS.ARMOR ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  갑옷
+                </button>
+                <button
+                  onClick={() => setSubFilter(EQUIPMENT_SLOTS.BOOTS)}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === EQUIPMENT_SLOTS.BOOTS ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  신발
+                </button>
+                <button
+                  onClick={() => setSubFilter(EQUIPMENT_SLOTS.NECKLACE)}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === EQUIPMENT_SLOTS.NECKLACE ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  목걸이
+                </button>
+                <button
+                  onClick={() => setSubFilter(EQUIPMENT_SLOTS.RING)}
+                  className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
+                    subFilter === EQUIPMENT_SLOTS.RING ? 'bg-purple-600 text-white' : 'bg-gray-500 text-gray-300'
+                  }`}
+                >
+                  반지
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import Scene3D from "./components/Scene3D.jsx";
 import MainMenu from "./components/MainMenu.jsx";
 import Inspector from "./components/Inspector.jsx";
 import BuildCancelButton from "./components/BuildCancelButton.jsx";
+import NotificationSystem from "./components/NotificationSystem.jsx";
 import { startGameLoop } from "./game/gameLoop";
 import { state, addUnit, uid, subscribe } from "./game/state";
 
@@ -28,6 +29,7 @@ export default function App(){
       <MainMenu />
       <Inspector />
       <BuildCancelButton />
+      <NotificationSystem />
     </div>
   );
 }
