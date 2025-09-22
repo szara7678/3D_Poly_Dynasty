@@ -56,10 +56,19 @@ export const BUILDING_DEFS = {
     skill: "Smithing",
     placeRadius: 1.7,
   },
-  monster_den: {
-    name: "몬스터 군락", baseHP: 300, baseCap: 0,
-    spawn: { kindPool: ["slime","goblin","wolf"], baseCooldown: 12 },
+  goblin_den: {
+    name: "고블린 군락", baseHP: 300, baseCap: 1,
+    build: { time: 3, cost: { wood: 20, ore: 10 } },
+    produces: { goblin: { base: 1, time: 10 } }, // 고블린 생산
+    skill: "Monster Breeding",
     placeRadius: 2.0,
+  },
+  orc_den: {
+    name: "오크 군락", baseHP: 350, baseCap: 1,
+    build: { time: 4, cost: { wood: 25, ore: 15 } },
+    produces: { orc: { base: 1, time: 12 } }, // 오크 생산
+    skill: "Monster Breeding",
+    placeRadius: 2.2,
   },
 };
 

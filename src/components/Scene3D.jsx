@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { Agents } from "./agents/Agents.jsx";
+import { EntityRenderer } from "./rendering/EntityRenderer.jsx";
 import { terrain } from "../world/terrain.js";
 import { updateKeyboardOrbit } from "../controls/keyboard.js";
 import { state, subscribe, setPlacing, setSelectedBuilding, setSelectedUnit } from "../game/state.js";
@@ -22,6 +22,22 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
   const canvasRef = useRef();
   const threeRef = useRef();
   const keysRef = useRef({});
+  
+  // 엔티티 상태 구독
+  const [monsters, setMonsters] = React.useState({});
+  const [nests, setNests] = React.useState({});
+  
+  useEffect(() => {
+    // 초기 상태 설정
+    setMonsters({ ...state.monsters });
+    setNests({ ...state.monsterNests });
+    
+    const unsubscribe = subscribe(() => {
+      setMonsters({ ...state.monsters });
+      setNests({ ...state.monsterNests });
+    });
+    return unsubscribe;
+  }, []);
 
   // 키보드 리스너
   useEffect(() => {
@@ -256,6 +272,8 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
       // 자원 표시 애니메이션 업데이트
       resourceDisplayManager.updateDisplays();
       
+      // 몬스터 애니메이션은 이제 updateMonsters에서 자동으로 처리됨
+      
       // 청사진 위치 실시간 업데이트 (드래그 중이 아닐 때)
       if (state.ui.placing && threeRef.current?.blueprintManager && !threeRef.current.blueprintManager.isDragging) {
         const blueprintManager = threeRef.current.blueprintManager;
@@ -430,6 +448,7 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
         state.ui.selectedBuildingId, 
         state.ui.selectedUnitId
       );
+
     });
     
     return () => {
@@ -450,12 +469,14 @@ export default function Scene3D({ className = "", units = [], count = 260, maxCo
   }, [units, hasInitialUnits]);
 
   return (
-    <div ref={containerRef} className={`relative w-full h-full min-h-[480px] md:min-h-[480px] min-h-[100vh] bg-[#eaf7ff] md:rounded-2xl overflow-hidden ${className}`}>
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-      <Agents 
-        key={hasInitialUnits ? 'agents-ready' : 'agents-empty'}
+    <div ref={containerRef} className={`relative w-full h-full min-h-[480px] bg-[#eaf7ff] md:rounded-2xl overflow-hidden ${className}`} style={{ minHeight: '480px' }}>
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" style={{ background: '#eaf7ff', width: '100%', height: '100%' }} />
+      <EntityRenderer 
+        key={hasInitialUnits ? 'entities-ready' : 'entities-empty'}
         threeRef={threeRef} 
-        units={units} 
+        units={units}
+        monsters={monsters}
+        nests={nests}
         count={count} 
         maxCount={maxCount} 
       />

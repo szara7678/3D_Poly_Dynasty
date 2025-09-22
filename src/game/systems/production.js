@@ -1,6 +1,9 @@
-import { state, setRes } from "../state";
+import { state, setRes, addMonster, uid } from "../state";
 import { BUILDING_DEFS } from "../content/buildings";
 import { handleProductionPractice } from "./skillTraining";
+import { createRandomGoblin } from "../content/goblins";
+import { setGoblinHomeNest } from "./simpleMonsterSystem";
+import { monsterNestManager } from "./monsterNestManager";
 
 // 생산 시스템 - 시민별 개별 생산 진행률 및 재능에 따른 확률적 수련치 상승
 export function runProduction(){
@@ -83,27 +86,52 @@ export function runProduction(){
           const populationMultiplier = (b.type === 'town_hall') ? Math.max(1, state.population * 0.1) : 1;
           const finalEfficiency = efficiency * populationMultiplier;
           
-          // 생산 진행률 증가 (고정 속도)
-          const progressIncrement = 0.5 / prodState.time; // 0.5초 틱 기준, 효율과 무관하게 고정
+          // 생산 진행률 증가 (몬스터 생산은 고정 속도, 일반 자원은 효율 적용)
+          const progressIncrement = (resourceKey === 'goblin' || resourceKey === 'orc') 
+            ? 0.5 / prodState.time // 몬스터는 고정 속도
+            : (0.5 / prodState.time) * finalEfficiency; // 일반 자원은 효율 적용
           prodState.progress += progressIncrement;
           
           // 생산 완료 체크
           if(prodState.progress >= 1.0) {
-            const amount = Math.floor(prodDef.base * finalEfficiency);
+            const amount = (resourceKey === 'goblin' || resourceKey === 'orc') 
+              ? prodDef.base // 몬스터는 고정 생산량
+              : Math.floor(prodDef.base * finalEfficiency); // 일반 자원은 효율 적용
             if(amount > 0) {
-              setRes({ [resourceKey]: amount });
-              if (typeof window !== 'undefined' && window.__INSU_DEBUG_LOG__) {
-                console.log(`${worker.name}이(가) ${resourceKey} ${amount}개 생산 완료! (효율: ${finalEfficiency.toFixed(2)}, 인구배율: ${populationMultiplier.toFixed(2)})`);
-              }
-              
-              // 자원 표시 생성 (건물 위에 올라가면서 사라지는 애니메이션)
-              if (typeof window !== 'undefined' && window.__INSU_THREE_REF__?.resourceDisplayManager) {
-                const buildingPosition = {
-                  x: b.tile?.x || 0,
-                  y: b.tile?.y || 0,
-                  z: b.tile?.z || 0
-                };
-                window.__INSU_THREE_REF__.resourceDisplayManager.createResourceDisplay(resourceKey, amount, buildingPosition);
+              // 몬스터 생산 처리
+              if(resourceKey === 'goblin' || resourceKey === 'orc') {
+                // 몬스터 군락지 매니저를 사용하여 몬스터 생산
+                const newMonster = monsterNestManager.produceMonster(b.id);
+                
+                if (newMonster && typeof window !== 'undefined' && window.__INSU_DEBUG_LOG__) {
+                  console.log(`${worker.name}이(가) 몬스터 ${newMonster.name} 생산 완료!`, newMonster.stats, `홈 군락지: ${b.id}`);
+                }
+                
+                // 몬스터 생산 표시 생성
+                if (typeof window !== 'undefined' && window.__INSU_THREE_REF__?.resourceDisplayManager) {
+                  const buildingPosition = {
+                    x: b.tile?.x || 0,
+                    y: b.tile?.y || 0,
+                    z: b.tile?.z || 0
+                  };
+                  window.__INSU_THREE_REF__.resourceDisplayManager.createResourceDisplay(resourceKey, 1, buildingPosition);
+                }
+              } else {
+                // 일반 자원 생산
+                setRes({ [resourceKey]: amount });
+                if (typeof window !== 'undefined' && window.__INSU_DEBUG_LOG__) {
+                  console.log(`${worker.name}이(가) ${resourceKey} ${amount}개 생산 완료! (효율: ${finalEfficiency.toFixed(2)}, 인구배율: ${populationMultiplier.toFixed(2)})`);
+                }
+                
+                // 자원 표시 생성 (건물 위에 올라가면서 사라지는 애니메이션)
+                if (typeof window !== 'undefined' && window.__INSU_THREE_REF__?.resourceDisplayManager) {
+                  const buildingPosition = {
+                    x: b.tile?.x || 0,
+                    y: b.tile?.y || 0,
+                    z: b.tile?.z || 0
+                  };
+                  window.__INSU_THREE_REF__.resourceDisplayManager.createResourceDisplay(resourceKey, amount, buildingPosition);
+                }
               }
               
               // 생산으로 인한 수련치 상승 처리

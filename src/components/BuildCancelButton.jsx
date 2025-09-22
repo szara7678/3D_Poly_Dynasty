@@ -109,7 +109,8 @@ export default function BuildCancelButton() {
       capacity: def.baseCap || 1, 
       workers: [], 
       build: def.build, 
-      construct: { progress: 0, eta: def.build?.time || 10, active: true } 
+      construct: { progress: 0, eta: def.build?.time || 10, active: true },
+      team: 0 // 플레이어 소속
     });
     
     const idle = idleUnits();

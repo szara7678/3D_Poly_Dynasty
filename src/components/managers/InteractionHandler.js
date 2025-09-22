@@ -11,7 +11,10 @@ import {
   setPlacing, 
   setSelectedBuilding, 
   setSelectedUnit, 
-  setUnitMoveTarget 
+  setUnitMoveTarget,
+  moveSquadToPosition,
+  executeSquadCommand,
+  state
 } from "../../game/state.js";
 
 /**
@@ -186,19 +189,24 @@ export class InteractionHandler {
   onClick(e) {
     const hit = this.getGroundIntersection(e);
 
-    // 선택 모드: placing이 아닐 때는 단일 클릭으로 인스펙터 열기
-    if (!this.state.ui.placing) {
-      this.handleSelection(hit);
-      return;
+    // 부대 명령 모드 확인
+    const selectedSquadId = this.state.ui.selectedSquadId;
+    if (selectedSquadId) {
+      const squad = this.state.squads[selectedSquadId];
+      if (squad && squad.moveMode && hit && hit.x !== undefined && hit.z !== undefined) {
+        // 부대 명령 실행
+        executeSquadCommand(selectedSquadId, hit);
+        return;
+      }
     }
 
-    // 배치 모드: 청사진 드래그 시작 (터치 제외)
-    // 터치 이벤트인지 확인 (pointerType이 'touch'인 경우)
-    if (e.pointerType === 'touch') {
-      return; // 터치 이벤트는 무시
+    // 배치 모드일 때는 클릭 이벤트 무시 (청사진에 영향 없음)
+    if (this.state.ui.placing) {
+      return; // 배치 모드에서는 모든 클릭 이벤트 무시
     }
-    
-    this.handleBlueprintDrag(hit);
+
+    // 선택 모드: 단일 클릭으로 인스펙터 열기
+    this.handleSelection(hit);
   }
 
   /**
@@ -216,13 +224,15 @@ export class InteractionHandler {
    * 선택 처리
    */
   handleSelection(hit) {
-    // 1) 유닛 우선 피킹(가까운 원형 반경) - 숨겨진 시민 제외
+    // 1) 유닛 우선 피킹(가까운 원형 반경) - 숨겨진 시민 제외, 팀 0만 선택 가능
     let bestUnit = null; 
     let bestU2 = 999999;
     for (const id in this.state.units) {
       const u = this.state.units[id];
       // 숨겨진 시민은 선택 대상에서 제외
       if (u.hidden) continue;
+      // 팀 0(플레이어 소속)만 선택 가능
+      if (u.team !== 0) continue;
       
       const x = u.pos?.x || 0; 
       const z = u.pos?.z || 0;
@@ -318,7 +328,8 @@ export class InteractionHandler {
       capacity: def.baseCap || 1, 
       workers: [], 
       build: def.build, 
-      construct: { progress: 0, eta: def.build?.time || 10, active: true } 
+      construct: { progress: 0, eta: def.build?.time || 10, active: true },
+      team: 0 // 플레이어 소속
     });
     
     const idle = idleUnits();
@@ -365,13 +376,15 @@ export class InteractionHandler {
     if (this.state.ui.placing) return;
     const hit = this.getGroundIntersection(e);
     
-    // 더블클릭: 유닛 또는 건물 포커스
+    // 더블클릭: 유닛 또는 건물 포커스 (팀 0만 선택 가능)
     let bestUnit = null; 
     let bestU2 = 999999;
     for (const id in this.state.units) {
       const u = this.state.units[id];
       // 숨겨진 시민은 포커스 대상에서 제외
       if (u.hidden) continue;
+      // 팀 0(플레이어 소속)만 선택 가능
+      if (u.team !== 0) continue;
       
       const x = u.pos?.x || 0; 
       const z = u.pos?.z || 0;

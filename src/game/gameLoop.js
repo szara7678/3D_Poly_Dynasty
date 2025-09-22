@@ -7,6 +7,8 @@ import { runSpawn } from "./systems/spawn";
 import { runMovement } from "./systems/movement";
 import { runPopulationGrowth } from "./systems/populationGrowth";
 import { runBuildingHPRegeneration } from "./systems/buildingHPRegen";
+import { runMonsterSystem } from "./systems/simpleMonsterSystem";
+import { updateSquadAI } from "./systems/squadAI";
 
 export const FIXED_DT = 0.5; // sec
 let acc=0, last=performance.now(), saveTimer=0;
@@ -40,6 +42,8 @@ function tick(){
   runReputation();
   runPopulationGrowth(); // 명성 기반 인구 증가
   runSpawn();
+  runMonsterSystem(); // 몬스터 시스템 실행
+  updateSquadAI(FIXED_DT * 1000, state); // 부대 AI 시스템 실행
   const t2 = performance.now();
   if (typeof window !== 'undefined'){
     window.__INSU_METRICS = window.__INSU_METRICS || {};

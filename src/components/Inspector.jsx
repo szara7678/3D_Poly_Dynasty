@@ -1,12 +1,13 @@
 import React, { useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName, removeBuilding, setSelectedItem, setPlacing } from "../game/state";
+import { state, subscribe, unassignUnit, assignUnitToBuilding, idleUnits, setSelectedBuilding, setSelectedUnit, callUnitToBuilding, exportUnitFromBuilding, setUnitName, setBuildingName, removeBuilding, setSelectedItem, setPlacing, setSelectedSquad } from "../game/state";
 import { BUILDING_DEFS } from "../game/content/buildings";
 import { getEquipmentQualityColor } from "../game/content/items";
 import { getCitizenEquipment } from "../game/systems/warehouse";
 import { updateCitizenCombatStats } from "../game/factory/citizen";
 import ItemInspector from "./ItemInspector";
 import CraftingInspector from "./CraftingInspector";
+import SquadInspector from "./SquadInspector";
 import { ITEM_DEFINITIONS } from "../game/content/items";
 import { showNotification } from "../utils/notificationManager";
 
@@ -23,6 +24,7 @@ export default function Inspector(){
   const selBId = state.ui.selectedBuildingId;
   const selUId = state.ui.selectedUnitId;
   const selItemId = state.ui.selectedItemId;
+  const selSquadId = state.ui.selectedSquadId;
   
   // 건물 선택이 바뀔 때 모달 상태 초기화
   React.useEffect(() => {
@@ -46,18 +48,21 @@ export default function Inspector(){
         if (state.ui.selectedItemId) {
           setSelectedItem(null);
         }
+        if (state.ui.selectedSquadId) {
+          setSelectedSquad(null);
+        }
       }
     };
 
-    if (selBId || selUId || selItemId) {
+    if (selBId || selUId || selItemId || selSquadId) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [selBId, selUId, selItemId, showDemolishModal]);
-  if(!selBId && !selUId && !selItemId) return null;
+  }, [selBId, selUId, selItemId, selSquadId, showDemolishModal]);
+  if(!selBId && !selUId && !selItemId && !selSquadId) return null;
 
   const handleNameEdit = (type, id, currentName) => {
     setEditingName(type === 'unit' ? `unit_${id}` : `building_${id}`);
@@ -301,8 +306,17 @@ export default function Inspector(){
     );
   }
 
+  // 부대 선택된 경우
+  if (selSquadId) {
+    return <SquadInspector />;
+  }
+
   const b = state.buildings[selBId]; if(!b) return null;
   const def = BUILDING_DEFS[b.type]||{};
+  
+  // 건물의 팀 확인 (기본값은 플레이어 팀 0)
+  const buildingTeam = b.team || 0;
+  const isPlayerBuilding = buildingTeam === 0;
   const computeProductivity = (u)=>{
     // 생산 전용 미리보기: production.js의 효율 공식을 단순화하여 표시
     const skillKey = def.skill; if(!skillKey) return null;
@@ -349,43 +363,47 @@ export default function Inspector(){
         
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {editingName === `building_${b.id}` ? (
-              <input
-                type="text"
-                value={tempName}
-                onChange={(e) => setTempName(e.target.value)}
-                onKeyDown={handleKeyPress}
-                onBlur={handleNameSave}
-                className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none"
-                autoFocus
-              />
-            ) : (
-              <div className="font-semibold">{b.name || def.name || b.type} Lv.{b.level||1}</div>
+            <div className="font-semibold">{b.name || def.name || b.type} Lv.{b.level||1}</div>
+            {isPlayerBuilding && (
+              <>
+                {editingName === `building_${b.id}` ? (
+                  <input
+                    type="text"
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    onBlur={handleNameSave}
+                    className="font-semibold bg-transparent border-b border-slate-300 focus:border-slate-500 outline-none"
+                    autoFocus
+                  />
+                ) : (
+                  <button 
+                    className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-1"
+                    onClick={() => handleNameEdit('building', b.id, b.name || def.name || b.type)}
+                  >
+                    <span>✏️</span>
+                    <span>변경</span>
+                  </button>
+                )}
+                <button 
+                  className="text-green-400 hover:text-green-600 text-sm flex items-center gap-1"
+                  onClick={() => handleBuildingMove(b.id)}
+                  title="건물 이동"
+                  disabled={!b.construct?.active && (b.hp || 0) < (b.hpMax || 0)}
+                >
+                  <span>📦</span>
+                  <span>이동</span>
+                </button>
+                <button 
+                  className="text-red-400 hover:text-red-600 text-sm flex items-center gap-1"
+                  onClick={handleDemolish}
+                  title="건물 철거"
+                >
+                  <span>🗑️</span>
+                  <span>철거</span>
+                </button>
+              </>
             )}
-            <button 
-              className="text-slate-400 hover:text-slate-600 text-sm flex items-center gap-1"
-              onClick={() => handleNameEdit('building', b.id, b.name || def.name || b.type)}
-            >
-              <span>✏️</span>
-              <span>변경</span>
-            </button>
-            <button 
-              className="text-green-400 hover:text-green-600 text-sm flex items-center gap-1"
-              onClick={() => handleBuildingMove(b.id)}
-              title="건물 이동"
-              disabled={!b.construct?.active && (b.hp || 0) < (b.hpMax || 0)}
-            >
-              <span>📦</span>
-              <span>이동</span>
-            </button>
-            <button 
-              className="text-red-400 hover:text-red-600 text-sm flex items-center gap-1"
-              onClick={handleDemolish}
-              title="건물 철거"
-            >
-              <span>🗑️</span>
-              <span>철거</span>
-            </button>
           </div>
           <div className="flex items-center gap-2">
             <div className="text-xs text-slate-600">HP {b.hp||0}/{b.hpMax||0} · XP {Math.floor(b.xp||0)}/{b.xpToNext||0}</div>
@@ -397,61 +415,69 @@ export default function Inspector(){
         <div className="mt-2 grid grid-cols-2 gap-3">
           <div>
             <div className="text-xs text-slate-600 mb-1">배치 인원 {workers.length}/{cap}</div>
-            <div className="space-y-1 max-h-32 overflow-auto pr-1">
-              {workers
-                .sort((a, b) => {
-                  if (!def.skill) return 0;
-                  const aTalent = (a.talents?.[def.skill] || 0);
-                  const bTalent = (b.talents?.[def.skill] || 0);
-                  return bTalent - aTalent;
-                })
-                .map(u=> (
-                <div key={u.id} className={`flex items-center justify-between border rounded-lg px-2 py-1 ${u.hidden ? 'bg-slate-100' : ''}`}>
-                  <span className={u.hidden ? 'text-slate-500' : ''}>{u.name}</span>
-                  <div className="flex items-center gap-2">
-                    {def.skill && (
-                      <span className="text-[11px] text-slate-600">
-                        {def.skill}({(u.talents?.[def.skill] || 0)}) {Math.floor(u.practice?.[def.skill] || 0)}
-                      </span>
-                    )}
-                    {u.hidden ? (
-                      <button className="text-green-600 hover:underline text-xs" onClick={()=>onExport(u.id)}>내보내기</button>
-                    ) : (
-                      <button className="text-blue-600 hover:underline text-xs" onClick={()=>onCall(u.id)}>부르기</button>
-                    )}
-                    <button className="text-red-600 hover:underline text-xs" onClick={()=>onUnassign(u.id)}>해제</button>
+            {isPlayerBuilding ? (
+              <div className="space-y-1 max-h-32 overflow-auto pr-1">
+                {workers
+                  .sort((a, b) => {
+                    if (!def.skill) return 0;
+                    const aTalent = (a.talents?.[def.skill] || 0);
+                    const bTalent = (b.talents?.[def.skill] || 0);
+                    return bTalent - aTalent;
+                  })
+                  .map(u=> (
+                  <div key={u.id} className={`flex items-center justify-between border rounded-lg px-2 py-1 ${u.hidden ? 'bg-slate-100' : ''}`}>
+                    <span className={u.hidden ? 'text-slate-500' : ''}>{u.name}</span>
+                    <div className="flex items-center gap-2">
+                      {def.skill && (
+                        <span className="text-[11px] text-slate-600">
+                          {def.skill}({(u.talents?.[def.skill] || 0)}) {Math.floor(u.practice?.[def.skill] || 0)}
+                        </span>
+                      )}
+                      {u.hidden ? (
+                        <button className="text-green-600 hover:underline text-xs" onClick={()=>onExport(u.id)}>내보내기</button>
+                      ) : (
+                        <button className="text-blue-600 hover:underline text-xs" onClick={()=>onCall(u.id)}>부르기</button>
+                      )}
+                      <button className="text-red-600 hover:underline text-xs" onClick={()=>onUnassign(u.id)}>해제</button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {workers.length===0 && <div className="text-xs text-slate-400">배치된 인원이 없습니다</div>}
-            </div>
+                ))}
+                {workers.length===0 && <div className="text-xs text-slate-400">배치된 인원이 없습니다</div>}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">적의 건물입니다</div>
+            )}
           </div>
           <div>
             <div className="text-xs text-slate-600 mb-1">유휴 인원</div>
-            <div className="space-y-1 max-h-32 overflow-auto pr-1">
-              {assignable
-                .sort((a, b) => {
-                  if (!def.skill) return 0;
-                  const aTalent = (a.talents?.[def.skill] || 0);
-                  const bTalent = (b.talents?.[def.skill] || 0);
-                  return bTalent - aTalent;
-                })
-                .slice(0,20)
-                .map(u=> (
-                <div key={u.id} className="flex items-center justify-between border rounded-lg px-2 py-1">
-                  <span>{u.name}</span>
-                  <div className="flex items-center gap-2">
-                    {def.skill && (
-                      <span className="text-[11px] text-slate-600">
-                        {def.skill}({(u.talents?.[def.skill] || 0)}) {Math.floor(u.practice?.[def.skill] || 0)}
-                      </span>
-                    )}
-                    <button className="text-emerald-700 hover:underline disabled:text-slate-400" disabled={(b.workers||[]).length>=cap} onClick={()=>onAssign(u.id)}>배치</button>
+            {isPlayerBuilding ? (
+              <div className="space-y-1 max-h-32 overflow-auto pr-1">
+                {assignable
+                  .sort((a, b) => {
+                    if (!def.skill) return 0;
+                    const aTalent = (a.talents?.[def.skill] || 0);
+                    const bTalent = (b.talents?.[def.skill] || 0);
+                    return bTalent - aTalent;
+                  })
+                  .slice(0,20)
+                  .map(u=> (
+                  <div key={u.id} className="flex items-center justify-between border rounded-lg px-2 py-1">
+                    <span>{u.name}</span>
+                    <div className="flex items-center gap-2">
+                      {def.skill && (
+                        <span className="text-[11px] text-slate-600">
+                          {def.skill}({(u.talents?.[def.skill] || 0)}) {Math.floor(u.practice?.[def.skill] || 0)}
+                        </span>
+                      )}
+                      <button className="text-emerald-700 hover:underline disabled:text-slate-400" disabled={(b.workers||[]).length>=cap} onClick={()=>onAssign(u.id)}>배치</button>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {assignable.length===0 && <div className="text-xs text-slate-400">유휴 인원이 없습니다</div>}
-            </div>
+                ))}
+                {assignable.length===0 && <div className="text-xs text-slate-400">유휴 인원이 없습니다</div>}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">적의 건물입니다</div>
+            )}
           </div>
         </div>
       </div>

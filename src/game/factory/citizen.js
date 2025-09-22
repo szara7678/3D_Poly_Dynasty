@@ -173,6 +173,7 @@ export function createRandomCitizen(pos){
     pos: { x: pos?.x ?? 0, y: pos?.y ?? 0, z: pos?.z ?? 0 },
     dir: Math.random() * Math.PI * 2,
     size,
+    team: 0, // 플레이어 소속 (0)
     // 현재치와 최대치 동시 설정
     hp: hpMax,
     hpMax,

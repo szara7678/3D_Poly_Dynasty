@@ -80,6 +80,8 @@ export class BlueprintManager {
       barracks: new THREE.BoxGeometry(2.6, 1.2, 1.6),
       mage_tower: new THREE.CylinderGeometry(0.8, 0.8, 2.4, 12),
       smithy: new THREE.BoxGeometry(1.8, 1.0, 1.8),
+      goblin_den: new THREE.DodecahedronGeometry(1.2, 0),
+      orc_den: new THREE.DodecahedronGeometry(1.4, 0),
     };
 
     return typeDefs[buildingType] || new THREE.BoxGeometry(1.2, 1.2, 1.2);

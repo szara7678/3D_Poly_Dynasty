@@ -47,10 +47,16 @@ export const initialState = () => {
     population: 0,
     units: {},
     buildings: {},
+    squads: {},
     warehouse: warehouse,
     sim: { timeScale: 1, paused: false },
     world: { seed: 12345 },
-    ui: { placing: null, selectedBuildingId: null, selectedUnitId: null, selectedItemId: null }, // placing: BuildingType|null
+    ui: { placing: null, selectedBuildingId: null, selectedUnitId: null, selectedItemId: null, selectedSquadId: null }, // placing: BuildingType|null
+    // 몬스터 시스템
+    monsters: {},
+    monsterNests: {},
+    lastNestSpawnTime: 0,
+    nestSpawnInterval: 300000, // 5분마다 군락지 스폰 시도
   };
 };
 
@@ -91,6 +97,14 @@ let idc=1; export const uid = (p="id") => `${p}_${idc++}`;
 export function addUnit(u){ 
   state.units[u.id]=u; 
   notify(); 
+}
+
+export function updateUnit(unitId, updates) {
+  const unit = state.units[unitId];
+  if (unit) {
+    Object.assign(unit, updates);
+    notify();
+  }
 }
 export function addBuilding(b){ state.buildings[b.id]=b; notify(); }
 export function removeBuilding(buildingId){ 
@@ -257,5 +271,179 @@ export function clearSelection(){
   state.ui.selectedItemId = null; 
   notify(); 
 }
+
+// 몬스터 관련 액션들
+export function addMonster(monster) {
+  state.monsters[monster.id] = monster;
+  notify();
+}
+
+
+export function removeMonster(monsterId) {
+  delete state.monsters[monsterId];
+  notify();
+}
+
+
+export function addMonsterNest(nest) {
+  state.monsterNests[nest.id] = nest;
+  notify();
+}
+
+
+export function removeMonsterNest(nestId) {
+  delete state.monsterNests[nestId];
+  notify();
+}
+
+
+export function updateMonster(monsterId, updates) {
+  const monster = state.monsters[monsterId];
+  if (monster) {
+    Object.assign(monster, updates);
+    notify();
+  }
+}
+
+export function updateMonsterNest(nestId, updates) {
+  const nest = state.monsterNests[nestId];
+  if (nest) {
+    Object.assign(nest, updates);
+    notify();
+  }
+}
+
+// 몬스터 시스템 초기화 (간소화된 버전)
+export function initializeMonsterSystem() {
+  console.log('몬스터 시스템을 초기화합니다... (간소화된 버전)');
+  
+  // 몬스터 군락지 매니저를 사용하여 랜덤 위치에 군락지 생성
+  import('./systems/monsterNestManager.js').then(({ monsterNestManager }) => {
+    // 고블린 군락 생성 (팀 1)
+    monsterNestManager.createRandomNest(0, 0, 40, 60, 1, 'goblin_den');
+    console.log('고블린 군락지 생성 완료');
+    
+    // 오크 군락 생성 (팀 2)
+    monsterNestManager.createRandomNest(0, 0, 40, 60, 2, 'orc_den');
+    console.log('오크 군락지 생성 완료');
+    
+    console.log('몬스터 시스템 초기화 완료. 고블린 군락지와 오크 군락지 설치됨.');
+  });
+}
+
+// 부대 관련 함수들
+export function addSquad(squad) {
+  state.squads[squad.id] = squad;
+  notify();
+}
+
+export function removeSquad(squadId) {
+  delete state.squads[squadId];
+  notify();
+}
+
+export function setSelectedSquad(squadId) {
+  state.ui.selectedSquadId = squadId;
+  notify();
+}
+
+export function assignUnitToSquad(unitId, squadId) {
+  const unit = state.units[unitId];
+  const squad = state.squads[squadId];
+  if (!unit || !squad) return;
+  
+  // 기존 부대에서 제거
+  if (unit.assignedSquadId) {
+    const oldSquad = state.squads[unit.assignedSquadId];
+    if (oldSquad) {
+      oldSquad.members = oldSquad.members.filter(id => id !== unitId);
+    }
+  }
+  
+  // 새 부대에 추가
+  unit.assignedSquadId = squadId;
+  if (!squad.members) squad.members = [];
+  if (!squad.members.includes(unitId)) {
+    squad.members.push(unitId);
+  }
+  
+  notify();
+}
+
+
+export function unassignUnitFromSquad(unitId) {
+  const unit = state.units[unitId];
+  if (!unit || !unit.assignedSquadId) return;
+  
+  const squad = state.squads[unit.assignedSquadId];
+  if (squad) {
+    squad.members = squad.members.filter(id => id !== unitId);
+  }
+  
+  unit.assignedSquadId = null;
+  notify();
+}
+
+
+export function setSquadName(squadId, name) {
+  const squad = state.squads[squadId];
+  if (squad) {
+    squad.name = name;
+    notify();
+  }
+}
+
+export function setSquadMoveMode(squadId, enabled) {
+  const squad = state.squads[squadId];
+  if (squad) {
+    squad.moveMode = enabled;
+    notify();
+  }
+}
+
+export function moveSquadToPosition(squadId, position) {
+  const squad = state.squads[squadId];
+  if (!squad || !squad.members) return;
+  
+  // 부대 멤버들을 지정된 위치로 이동
+  squad.members.forEach(unitId => {
+    const unit = state.units[unitId];
+    if (unit) {
+      unit.x = position.x;
+      unit.y = position.y;
+      unit.z = position.z;
+    }
+  });
+  
+  notify();
+}
+
+export function setSquadCommand(squadId, command) {
+  const squad = state.squads[squadId];
+  if (squad) {
+    squad.command = command;
+    notify();
+  }
+}
+
+export function executeSquadCommand(squadId, targetPosition) {
+  const squad = state.squads[squadId];
+  if (!squad || !squad.members) return;
+  
+  const command = squad.command || 'attack';
+  
+  // 부대 멤버들에게 명령 실행
+  squad.members.forEach(unitId => {
+    const unit = state.units[unitId];
+    if (unit) {
+      unit.squadCommand = command;
+      unit.squadTarget = targetPosition;
+      unit.squadId = squadId;
+    }
+  });
+  
+  notify();
+}
+
 
 

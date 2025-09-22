@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { state, subscribe, setPlacing, canAfford, setSelectedBuilding, setSelectedUnit } from "../game/state";
+import { state, subscribe, setPlacing, canAfford, setSelectedBuilding, setSelectedUnit, setSelectedSquad, addSquad, uid } from "../game/state";
 import { BUILDING_DEFS } from "../game/content/buildings";
 import WarehouseTab from "./WarehouseTab";
 import CraftingTab from "./CraftingTab";
@@ -37,6 +37,7 @@ export default function MainMenu() {
     { id: 'build', name: '건축', icon: '🏗️' },
     { id: 'buildings', name: '건물', icon: '🏠' },
     { id: 'citizens', name: '시민', icon: '👥' },
+    { id: 'squads', name: '부대', icon: '⚔️' },
     { id: 'warehouse', name: '창고', icon: '📦' },
     { id: 'crafting', name: '제작', icon: '🔨' },
     { id: 'diplomacy', name: '외교', icon: '🤝' }
@@ -71,6 +72,32 @@ export default function MainMenu() {
   const handleCitizenClick = (unitId) => {
     setSelectedUnit(unitId);
     setActiveTab(null); // 메뉴 닫기
+  };
+
+  const handleSquadCommand = (squadId) => {
+    // 부대 명령 모드 진입
+    setSelectedSquad(squadId);
+    setActiveTab(null);
+  };
+
+  const handleSquadDeploy = (squadId) => {
+    // 부대 배치 모드 진입
+    setSelectedSquad(squadId);
+    setActiveTab(null);
+  };
+
+  const handleAddSquad = () => {
+    // 새 부대 생성
+    const squadId = uid('squad');
+    const squad = {
+      id: squadId,
+      name: `부대 ${Object.keys(state.squads || {}).length + 1}`,
+      members: [],
+      moveMode: false
+    };
+    
+    addSquad(squad);
+    setActiveTab(null);
   };
 
   const renderBuildTab = () => (
@@ -204,6 +231,48 @@ export default function MainMenu() {
     <CraftingTab />
   );
 
+  const renderSquadsTab = () => (
+    <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
+      {/* 부대 추가 버튼 */}
+      <button 
+        className="w-full flex items-center justify-center border rounded px-2 py-1 text-xs bg-purple-100 hover:bg-purple-200 border-purple-400 text-purple-700 font-medium"
+        onClick={handleAddSquad}
+      >
+        <span className="mr-1">➕</span>
+        부대 추가
+      </button>
+      
+      {/* 부대 목록 */}
+      {Object.values(state.squads || {}).map((squad) => (
+        <div key={squad.id} className="border rounded-lg px-2 py-1 bg-purple-50 border-purple-300">
+          <div className="flex items-center justify-between mb-1">
+            <span className="font-medium text-sm">{squad.name}</span>
+            <div className="flex gap-1">
+              <button 
+                className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
+                onClick={() => handleSquadCommand(squad.id)}
+              >
+                명령
+              </button>
+              <button 
+                className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded"
+                onClick={() => handleSquadDeploy(squad.id)}
+              >
+                배치
+              </button>
+            </div>
+          </div>
+          <div className="text-xs text-slate-600">
+            인원: {squad.members?.length || 0}명
+          </div>
+        </div>
+      ))}
+      {(!state.squads || Object.values(state.squads).length === 0) && (
+        <div className="text-sm text-slate-400 text-center py-4">부대가 없습니다</div>
+      )}
+    </div>
+  );
+
   const renderDiplomacyTab = () => (
     <div className="text-sm text-slate-400 text-center py-8">
       외교 기능은 아직 구현되지 않았습니다
@@ -218,6 +287,8 @@ export default function MainMenu() {
         return renderBuildingsTab();
       case 'citizens':
         return renderCitizensTab();
+      case 'squads':
+        return renderSquadsTab();
       case 'warehouse':
         return renderWarehouseTab();
       case 'crafting':

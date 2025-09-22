@@ -34,7 +34,8 @@ export class BuildingManager {
       barracks: { geo: new THREE.BoxGeometry(2.6, 1.2, 1.6), color: '#ef4444' },
       mage_tower: { geo: new THREE.CylinderGeometry(0.8, 0.8, 2.4, 12), color: '#06b6d4' },
       smithy: { geo: new THREE.BoxGeometry(1.8, 1.0, 1.8), color: '#f59e0b' },
-      monster_den: { geo: new THREE.DodecahedronGeometry(1.2, 0), color: '#4b5563' },
+      goblin_den: { geo: new THREE.DodecahedronGeometry(1.2, 0), color: '#4b5563' },
+      orc_den: { geo: new THREE.DodecahedronGeometry(1.4, 0), color: '#2d5016' }, // 오크 군락 (더 크고 진한 녹색)
     };
 
     for (const t in typeDefs) {
