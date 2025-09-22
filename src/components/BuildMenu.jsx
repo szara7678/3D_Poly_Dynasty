@@ -22,7 +22,7 @@ export default function BuildMenu(){
     <div className="absolute top-2 right-2 bg-white/90 backdrop-blur rounded-xl shadow-lg p-3 text-sm w-56">
       <div className="font-semibold mb-2">건설 메뉴</div>
       <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
-        {Object.keys(BUILDING_DEFS).filter(t=>t!=="monster_den").map((t)=>{
+        {Object.keys(BUILDING_DEFS).filter(t=>!["monster_den", "goblin_den", "orc_den"].includes(t)).map((t)=>{
           const d = BUILDING_DEFS[t]; const cost = d.build?.cost || {}; const affordable = canAfford(cost);
           return (
             <button key={t} onClick={()=>tryBuild(t)} disabled={!affordable}

@@ -134,36 +134,56 @@ export function EntityRenderer({ threeRef, units, monsters, nests, count = 260, 
     const appearanceById = new Map(); // 시민 ID별 외형 정보 저장
     const monsterAppearanceById = new Map(); // 몬스터 ID별 외형 정보 저장
     
+    // 시민 ID별 고정 색상 저장 (한 번 계산되면 절대 변하지 않음)
+    const citizenColorById = new Map(); // 시민 ID -> THREE.Color 매핑
+    const monsterColorById = new Map(); // 몬스터 ID -> THREE.Color 매핑
+    
     // 색상 관련 함수들은 RenderingUtils에서 가져옴
     
-    // 색상 할당 함수 (외형 정보 기반)
-    function assignAppearanceToCitizen(citizenId, instanceIndex, appearance) {
-      appearanceById.set(citizenId, appearance);
-      const color = getColorFromAppearance(appearance, 'top');
-      // 시민 파트에만 색상 적용
-      const citizenParts = ['body', 'head', 'lArm', 'rArm', 'lHand', 'rHand'];
-      citizenParts.forEach(partName => {
-        if (parts[partName]) parts[partName].setColorAt(instanceIndex, color);
-      });
+    // 시민 ID별 고정 색상 계산 함수 (한 번만 실행)
+    function getOrCreateCitizenColor(citizenId, appearance) {
+      if (!citizenColorById.has(citizenId)) {
+        const color = getColorFromAppearance(appearance, 'top');
+        citizenColorById.set(citizenId, color);
+      }
+      return citizenColorById.get(citizenId);
     }
     
-    // 몬스터 색상 할당 함수 (고블린은 초록색)
-    function assignAppearanceToMonster(monsterId, instanceIndex, type) {
-      monsterAppearanceById.set(monsterId, type);
-      const color = new THREE.Color('#4a5d23'); // 고블린 초록색
-      // 몬스터도 시민과 동일한 파트 사용
-      const citizenParts = ['body', 'head', 'lArm', 'rArm', 'lHand', 'rHand'];
-      citizenParts.forEach(partName => {
-        if (parts[partName]) parts[partName].setColorAt(instanceIndex, color);
-      });
+    // 색상 적용 함수 (현재 렌더링 인덱스에 고정 색상 적용)
+    function applyCitizenColor(citizenId, instanceIndex) {
+      const color = citizenColorById.get(citizenId);
+      if (color) {
+        const citizenParts = ['body', 'head', 'lArm', 'rArm', 'lHand', 'rHand'];
+        citizenParts.forEach(partName => {
+          if (parts[partName]) parts[partName].setColorAt(instanceIndex, color);
+        });
+      }
+    }
+    
+    // 몬스터 ID별 고정 색상 계산 함수 (한 번만 실행)
+    function getOrCreateMonsterColor(monsterId, type) {
+      if (!monsterColorById.has(monsterId)) {
+        const color = new THREE.Color('#4a5d23'); // 고블린 초록색 (나중에 타입별로 확장 가능)
+        monsterColorById.set(monsterId, color);
+      }
+      return monsterColorById.get(monsterId);
+    }
+    
+    // 몬스터 색상 적용 함수
+    function applyMonsterColor(monsterId, instanceIndex) {
+      const color = monsterColorById.get(monsterId);
+      if (color) {
+        const citizenParts = ['body', 'head', 'lArm', 'rArm', 'lHand', 'rHand'];
+        citizenParts.forEach(partName => {
+          if (parts[partName]) parts[partName].setColorAt(instanceIndex, color);
+        });
+      }
     }
     
     // 군락지 생성 함수들은 RenderingUtils에서 가져옴
     
-    // 초기 색상 설정 및 캐싱(매 프레임 갱신 방지)
+    // 초기 색상 설정 (기본 회색)
     const defaultColor = new THREE.Color('#6b705c');
-    const coloredIndex = new Set();
-    const monsterColoredIndex = new Set();
     
     for(let i=0;i<maxCount;i++){
       // 시민과 몬스터 공통 파트 기본 색상
@@ -238,6 +258,7 @@ export function EntityRenderer({ threeRef, units, monsters, nests, count = 260, 
           const u = sourceUnits[i]; if(!u) continue;
           const id = u.id ?? i;
           seenIds.add(id);
+          
           const ux = u.pos?.x ?? 0; const uz = u.pos?.z ?? 0; 
           // 지상 높이 계산으로 시민이 뜨는 문제 해결
           const groundY = getGroundHeight(ux, uz);
@@ -287,14 +308,17 @@ export function EntityRenderer({ threeRef, units, monsters, nests, count = 260, 
           // 기울임 스무딩(미세)
           const bodyTilt = facing.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), tiltZ*0.8));
 
-          // 시민별 외형 정보 활용 (units.js의 appearance 정보)
-          const appearance = u.appearance || null;
-          // 색상은 최초 배치 시에만 설정하여 프레임당 컬러 버퍼 갱신 방지
-          if(!coloredIndex.has(i)){
-            assignAppearanceToCitizen(id, i, appearance);
-            coloredIndex.add(i);
-            for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate = true; }
-          }
+          // 시민별 외형 정보 활용 - 숨겨진 상태와 관계없이 초기 외형 사용
+          const appearance = u.originalAppearance || u.appearance || null;
+          
+          // 1. 시민 ID 기반 고유 색상 생성 (한 번만 실행)
+          getOrCreateCitizenColor(id, appearance);
+          
+          // 2. 현재 렌더링 인덱스에 고정 색상 적용 (매 프레임)
+          applyCitizenColor(id, i);
+          
+          // 색상 버퍼 업데이트 표시
+          for(const k in parts){ if(parts[k].instanceColor) parts[k].instanceColor.needsUpdate = true; }
           
           place(parts.body,i,bodyPos,bodyTilt,new THREE.Vector3(1,1,1).multiplyScalar(size));
           const headPos = bodyPos.clone().add(new THREE.Vector3(0,1.05*size,0));
@@ -412,16 +436,20 @@ export function EntityRenderer({ threeRef, units, monsters, nests, count = 260, 
           // 기울임 스무딩(미세)
           const monsterBodyTilt = monsterFacing.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0), tiltZ*0.8));
           
-          // 몬스터 색상 설정 (최초 배치 시에만)
+          // 몬스터 색상 설정 (몬스터 ID 기준)
           const monsterInstanceIndex = usedCount + i; // 시민 다음 인덱스 사용
-          if(!monsterColoredIndex.has(monsterInstanceIndex)){
-            assignAppearanceToMonster(id, monsterInstanceIndex, m.type || 'goblin');
-            monsterColoredIndex.add(monsterInstanceIndex);
-            const citizenParts = ['body', 'head', 'lArm', 'rArm', 'lHand', 'rHand'];
-            citizenParts.forEach(partName => {
-              if(parts[partName] && parts[partName].instanceColor) parts[partName].instanceColor.needsUpdate = true;
-            });
-          }
+          
+          // 1. 몬스터 ID 기반 고유 색상 생성 (한 번만 실행)
+          getOrCreateMonsterColor(id, m.type || 'goblin');
+          
+          // 2. 현재 렌더링 인덱스에 고정 색상 적용 (매 프레임)
+          applyMonsterColor(id, monsterInstanceIndex);
+          
+          // 색상 버퍼 업데이트 표시
+          const citizenParts = ['body', 'head', 'lArm', 'rArm', 'lHand', 'rHand'];
+          citizenParts.forEach(partName => {
+            if(parts[partName] && parts[partName].instanceColor) parts[partName].instanceColor.needsUpdate = true;
+          });
           
           // 몬스터 몸체 (시민과 동일한 방식)
           place(parts.body, monsterInstanceIndex, monsterBodyPos, monsterBodyTilt, new THREE.Vector3(1,1,1).multiplyScalar(monsterSize));

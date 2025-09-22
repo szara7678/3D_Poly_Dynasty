@@ -185,6 +185,7 @@ export function createRandomCitizen(pos){
     combatStats: calculateCombatStats(stats), // 전투 스탯
     inventory: { items: {}, equipment: {}, capacity: 20, weight: 0 },
     appearance,
+    originalAppearance: { ...appearance }, // 초기 외형을 별도로 저장하여 숨겨진 상태에서도 유지
     state: "idle",
     assignedBuildingId: null,
   };

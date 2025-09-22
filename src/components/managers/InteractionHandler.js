@@ -118,24 +118,17 @@ export class InteractionHandler {
    */
   checkPlacementValidity(hit) {
     const placingType = this.state.ui.placing;
-    
-    console.log(`[배치 체크] 건물 타입: ${placingType}, 위치: (${hit.x.toFixed(1)}, ${hit.z.toFixed(1)})`);
-    
+        
     if (placingType !== 'town_hall') {
       const isWithinRange = TownRangeCalculator.isWithinTownRange(hit.x, hit.z);
-      console.log(`[배치 체크] 마을 범위 내: ${isWithinRange}`);
-      
       if (!isWithinRange) {
-        console.log(`[배치 체크] 마을 범위 밖에 있어서 배치 불가`);
         return false;
       }
     }
     
     // 다른 건물과 겹침 체크
     const defPlace = BUILDING_DEFS[placingType];
-    const minDist = Math.max(1.5, defPlace?.placeRadius || 2.0);
-    console.log(`[배치 체크] 건물 반경: ${minDist}`);
-    
+    const minDist = Math.max(1.5, defPlace?.placeRadius || 2.0);    
     for (const id in this.state.buildings) {
       const b = this.state.buildings[id];
       const otherDefP = BUILDING_DEFS[b.type];
@@ -146,12 +139,9 @@ export class InteractionHandler {
       const requiredDistance = minDist + otherR;
       
       if (distance < requiredDistance) {
-        console.log(`[배치 체크] 건물 ${b.type}과 겹침: 거리 ${distance.toFixed(1)} < 필요거리 ${requiredDistance.toFixed(1)}`);
         return false;
       }
     }
-    
-    console.log(`[배치 체크] 배치 가능!`);
     return true;
   }
 

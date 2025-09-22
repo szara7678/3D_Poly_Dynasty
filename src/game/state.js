@@ -83,7 +83,21 @@ export function save(){
   try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ console.warn("save fail", e); }
 }
 export function load(){
-  try{ const s = JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s) Object.assign(state, s); }catch(e){ console.warn("load fail", e); }
+  try{ 
+    const s = JSON.parse(localStorage.getItem(LS_KEY)||"null"); 
+    if(s) {
+      Object.assign(state, s);
+      
+      // 기존 시민들에게 originalAppearance 속성 추가 (마이그레이션)
+      if (state.units) {
+        Object.values(state.units).forEach(unit => {
+          if (unit && !unit.originalAppearance && unit.appearance) {
+            unit.originalAppearance = { ...unit.appearance };
+          }
+        });
+      }
+    }
+  }catch(e){ console.warn("load fail", e); }
 }
 
 export function setRes(delta){
@@ -205,6 +219,16 @@ export function unassignUnit(unitId){
   u.state = "idle";
   u.hidden = false; // 숨김 상태 해제
   u.hiddenBuildingId = null;
+  
+  // 이동 중인 시민을 멈춤 (부르기 중이었다면 이동 취소)
+  if (u.moveTo) {
+    u.moveTo = null;
+    u.state = "idle";
+  }
+  if (u.__callTarget) {
+    u.__callTarget = null;
+  }
+  
   notify();
   return true;
 }

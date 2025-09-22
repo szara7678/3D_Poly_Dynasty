@@ -32,7 +32,7 @@ export class MonsterNestManager {
     addBuilding(nest);
     
     // 가상 시민 배치
-    const virtualWorkerId = this.createVirtualWorker(nestId, position, team);
+    const virtualWorkerId = this.createVirtualWorker(nestId, position, team, nestType);
     nest.workers = [virtualWorkerId];
     
     this.nests.set(nestId, {
@@ -45,11 +45,11 @@ export class MonsterNestManager {
   }
 
   // 가상 시민 생성
-  createVirtualWorker(nestId, position, team = 1) {
+  createVirtualWorker(nestId, position, team = 1, nestType = 'goblin_den') {
     const virtualWorkerId = uid('unit');
     const virtualWorker = {
       id: virtualWorkerId,
-      name: '고블린 군락',
+      name: nestType === 'orc_den' ? '오크 군락' : '고블린 군락',
       type: 'virtual_worker',
       pos: position,
       dir: 0,

@@ -102,7 +102,7 @@ export default function MainMenu() {
 
   const renderBuildTab = () => (
     <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
-      {Object.keys(BUILDING_DEFS).filter(t => t !== "monster_den").map((t) => {
+      {Object.keys(BUILDING_DEFS).filter(t => !["monster_den", "goblin_den", "orc_den"].includes(t)).map((t) => {
         const d = BUILDING_DEFS[t];
         const cost = d.build?.cost || {};
         const affordable = canAfford(cost);
@@ -151,8 +151,11 @@ export default function MainMenu() {
   );
 
   const renderCitizensTab = () => {
-    // 건물 타입별 필터링
+    // 건물 타입별 필터링 + 플레이어 팀만 표시
     const filteredUnits = Object.values(state.units).filter((unit) => {
+      // 플레이어 팀(team 0)만 표시
+      if (unit.team !== 0 && unit.team !== undefined) return false;
+      
       if (citizenFilter === 'all') return true;
       if (citizenFilter === 'unassigned') return !unit.assignedBuildingId;
       
