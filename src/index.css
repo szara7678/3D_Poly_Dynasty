@@ -17,71 +17,24 @@ body {
   height: 100vh;
 }
 
-/* 모바일 환경에서 가로 모드 강제 및 화면 꽉 채우기 */
+/* 세로보다 가로가 짧을 때(App에서 클래스 토글) 단순 회전 */
+.force-landscape {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vh; /* 회전 후 기준 */
+  height: 100vw;
+  transform: rotate(90deg);
+  transform-origin: left top;
+  overflow: hidden;
+}
+
+/* 모바일 기본: 스크롤 방지 및 동적 높이 반영 */
 @media screen and (max-width: 768px) {
   html, body {
     height: 100vh;
     height: 100dvh; /* 동적 뷰포트 높이 지원 */
     overflow: hidden; /* 스크롤 방지 */
-  }
-  
-  .App {
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-    position: fixed;
-    top: 0;
-    left: 0;
-  }
-  
-  /* 가로 모드 강제 */
-  @media screen and (orientation: portrait) {
-    html {
-      transform: rotate(90deg);
-      transform-origin: left top;
-      width: 100vh;
-      height: 100vw;
-      position: absolute;
-      top: 100%;
-      left: 0;
-    }
-    
-    body {
-      width: 100vh;
-      height: 100vw;
-      overflow: hidden;
-    }
-    
-    .App {
-      width: 100vh;
-      height: 100vw;
-    }
-  }
-  
-  /* 가로 모드일 때는 원래대로 */
-  @media screen and (orientation: landscape) {
-    html {
-      transform: none;
-      width: 100vw;
-      height: 100vh;
-      height: 100dvh;
-      position: static;
-      top: auto;
-      left: auto;
-    }
-    
-    body {
-      width: 100vw;
-      height: 100vh;
-      height: 100dvh;
-    }
-    
-    .App {
-      width: 100vw;
-      height: 100vh;
-      height: 100dvh;
-    }
   }
 }
 
