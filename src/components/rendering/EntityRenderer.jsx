@@ -221,15 +221,15 @@ export function EntityRenderer({ threeRef, units, monsters, nests, count = 260, 
       const sourceNests = Array.isArray(curNests) ? curNests : Object.values(curNests || {});
       const validNests = sourceNests.filter(n => n && n.id);
       
-      // 간단한 디버깅
-      if (Math.floor(t) % 15 === 0 && Math.floor(t*10) % 10 === 0) {
-        console.log('📊 EntityRenderer 상태:', {
-          시민: usedCount,
-          몬스터: monsterCount,
-          군락지: validNests.length,
-          몬스터데이터: sourceMonsters.length > 0 ? sourceMonsters[0] : '없음'
-        });
-      }
+      // // 간단한 디버깅
+      // if (Math.floor(t) % 15 === 0 && Math.floor(t*10) % 10 === 0) {
+      //   console.log('📊 EntityRenderer 상태:', {
+      //     시민: usedCount,
+      //     몬스터: monsterCount,
+      //     군락지: validNests.length,
+      //     몬스터데이터: sourceMonsters.length > 0 ? sourceMonsters[0] : '없음'
+      //   });
+      // }
       
       // 1) 시민 렌더링
       const seenIds = new Set();
@@ -461,12 +461,14 @@ export function EntityRenderer({ threeRef, units, monsters, nests, count = 260, 
           place(parts.lHand, monsterInstanceIndex, monsterHandL, monsterFacing, new THREE.Vector3(0.8,0.8,0.8));
           place(parts.rHand, monsterInstanceIndex, monsterHandR, monsterFacing, new THREE.Vector3(0.8,0.8,0.8));
 
-          // 몬스터 라벨 (고블린으로 표시)
-          const monsterLabelText = `고블린`;
+          // 몬스터 라벨 (실제 몬스터 이름 사용)
+          const monsterLabelText = m.name || '몬스터';
           let monsterEntry = labelById.get(id);
           if(!monsterEntry){ monsterEntry = createLabelSprite(monsterLabelText, scene); labelById.set(id, monsterEntry); }
           if(monsterEntry.lastText !== monsterLabelText){ monsterEntry.draw(monsterLabelText); monsterEntry.tex.needsUpdate = true; monsterEntry.lastText = monsterLabelText; }
-          monsterEntry.sprite.position.copy(monsterHeadPos.clone().add(new THREE.Vector3(0, 1.5*monsterSize, 0))); // 라벨을 더 높게 배치
+          // 오크는 더 크므로 라벨을 더 높게 배치
+          const labelHeight = m.type === 'orc' ? 2.0*monsterSize : 1.5*monsterSize;
+          monsterEntry.sprite.position.copy(monsterHeadPos.clone().add(new THREE.Vector3(0, labelHeight, 0)));
           monsterEntry.sprite.visible = true;
         }
       }

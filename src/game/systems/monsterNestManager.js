@@ -41,7 +41,6 @@ export class MonsterNestManager {
       team: team
     });
 
-    console.log('몬스터 군락지 생성:', position, '팀:', team);
     return nestId;
   }
 
@@ -101,7 +100,6 @@ export class MonsterNestManager {
       newMonster.team = nestInfo.team; // 군락지와 같은 팀
       addMonster(newMonster);
       setOrcHomeNest(newMonster.id, nestId);
-      console.log(`오크 군락지 ${nestId}에서 오크 생산:`, newMonster.stats);
     } else {
       // 고블린 생산 (기본)
       newMonster = createRandomGoblin(spawnPos);
@@ -109,7 +107,6 @@ export class MonsterNestManager {
       newMonster.team = nestInfo.team; // 군락지와 같은 팀
       addMonster(newMonster);
       setGoblinHomeNest(newMonster.id, nestId);
-      console.log(`고블린 군락지 ${nestId}에서 고블린 생산:`, newMonster.stats);
     }
 
     return newMonster;

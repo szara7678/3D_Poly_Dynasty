@@ -109,6 +109,4 @@ function setRandomTarget(monster) {
     y: 0,
     z: centerZ + Math.sin(angle) * distance
   };
-  
-  console.log(`고블린 ${monster.id}의 새로운 목표:`, monster.moveTo, homeNestId ? `(홈 군락지: ${homeNestId})` : '(홈 군락지 없음)');
 }

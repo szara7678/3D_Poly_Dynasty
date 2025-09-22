@@ -20,12 +20,6 @@ export default function App(){
     
     // 몬스터 시스템 초기화 후 강제 리렌더링 (타이밍 문제 해결)
     setTimeout(() => {
-      console.log('App.jsx - 몬스터 시스템 확인:', {
-        monstersCount: Object.keys(state.monsters).length,
-        nestsCount: Object.keys(state.monsterNests).length,
-        nests: state.monsterNests
-      });
-      // 강제 리렌더링으로 EntityRenderer가 군락지 데이터를 인식하도록 함
       force();
     }, 100);
 

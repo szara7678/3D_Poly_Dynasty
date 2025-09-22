@@ -315,19 +315,14 @@ export function updateMonsterNest(nestId, updates) {
 
 // 몬스터 시스템 초기화 (간소화된 버전)
 export function initializeMonsterSystem() {
-  console.log('몬스터 시스템을 초기화합니다... (간소화된 버전)');
   
   // 몬스터 군락지 매니저를 사용하여 랜덤 위치에 군락지 생성
   import('./systems/monsterNestManager.js').then(({ monsterNestManager }) => {
     // 고블린 군락 생성 (팀 1)
     monsterNestManager.createRandomNest(0, 0, 40, 60, 1, 'goblin_den');
-    console.log('고블린 군락지 생성 완료');
     
     // 오크 군락 생성 (팀 2)
     monsterNestManager.createRandomNest(0, 0, 40, 60, 2, 'orc_den');
-    console.log('오크 군락지 생성 완료');
-    
-    console.log('몬스터 시스템 초기화 완료. 고블린 군락지와 오크 군락지 설치됨.');
   });
 }
 

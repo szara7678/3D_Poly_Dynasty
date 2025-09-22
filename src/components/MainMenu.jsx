@@ -129,7 +129,7 @@ export default function MainMenu() {
 
   const renderBuildingsTab = () => (
     <div className="space-y-2 max-h-[50vh] overflow-auto pr-1">
-      {Object.values(state.buildings).map((building) => {
+      {Object.values(state.buildings).filter(building => building.team === 0).map((building) => {
         const def = BUILDING_DEFS[building.type] || {};
         return (
           <button
@@ -144,7 +144,7 @@ export default function MainMenu() {
           </button>
         );
       })}
-      {Object.values(state.buildings).length === 0 && (
+      {Object.values(state.buildings).filter(building => building.team === 0).length === 0 && (
         <div className="text-sm text-slate-400 text-center py-4">건물이 없습니다</div>
       )}
     </div>
